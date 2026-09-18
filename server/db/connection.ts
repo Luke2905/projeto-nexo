@@ -3,11 +3,11 @@
  * @description Manages the database connection using Drizzle ORM with mysql2.
  */
 
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { ENV } from "../_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+let _db: MySql2Database | null = null;
 
 /**
  * Gets the database connection instance.

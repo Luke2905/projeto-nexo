@@ -5,7 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch --env-file=.env server/_core/index.ts",
-    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && npm run build:api",
+    "build:api": "esbuild server/vercel.ts --platform=node --target=node22 --packages=external --bundle --format=esm --outfile=dist/api.mjs",
+    "vercel-build": "npm run build:api",
+    "test:production": "node scripts/check-production.mjs",
     "start": "node dist/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",

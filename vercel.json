@@ -1,6 +1,11 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "dist/api.mjs"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

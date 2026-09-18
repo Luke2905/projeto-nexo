@@ -14,7 +14,7 @@ function createContext(user: TrpcContext["user"] = null): TrpcContext {
 describe("social routes", () => {
   it("blocks saving a game for guests", async () => {
     const caller = appRouter.createCaller(createContext());
-    await expect(caller.games.record({
+    await expect(caller.games.saveProgress({
       challengeId: "daily-2026-09-17",
       guesses: 4,
       bestRank: 1,

@@ -2,10 +2,11 @@ import { config } from "dotenv";
 import path from "node:path";
 import { z } from "zod";
 
-// Load .env from project root — override:true wins over tsx's built-in empty injection
-config({ path: path.resolve(process.cwd(), ".env"), override: true });
-// Fallback: also try one level up in case the entry point is run from server/
-config({ path: path.resolve(process.cwd(), "..", ".env"), override: false });
+// Hosted environment variables take precedence over local development files.
+if (!process.env.VERCEL) {
+  config({ path: path.resolve(process.cwd(), ".env"), override: false });
+  config({ path: path.resolve(process.cwd(), "..", ".env"), override: false });
+}
 
 const envSchema = z.object({
   VITE_APP_ID: z.string().optional(),
@@ -16,7 +17,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   BUILT_IN_FORGE_API_URL: z.string().optional(),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
-  PORT: z.string().transform(Number).default("3000"),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -167,3 +167,33 @@ Verifique as duas variáveis `BUILT_IN_FORGE_API_*`, o tamanho máximo de 2 MB e
 ### Porta 3000 ocupada
 
 Encerre o processo que está usando a porta ou altere a configuração do servidor antes de iniciar. Evite executar dois servidores do projeto ao mesmo tempo.
+
+## Deploy na Vercel
+
+A função `api/index.mjs` importa `dist/api.mjs`, gerado por `npm run build:api`
+a partir de `server/vercel.ts`. O esbuild resolve os imports TypeScript e os
+aliases internos antes da execução em Node ESM. Não aponte a função diretamente
+para os fontes TypeScript com imports sem extensão.
+
+O `buildCommand` gera o frontend e o backend; `vercel-build` também permite ao
+builder da função gerar seu artefato. Os plugins Manus só executam no servidor
+de desenvolvimento.
+
+Configure `DATABASE_URL` (MySQL acessível pela Vercel) e `JWT_SECRET` (pelo menos
+32 caracteres) no ambiente Production e aplique as migrações do banco antes de
+usar o cadastro. As credenciais ficam nas variáveis da Vercel, fora do Git.
+Após alterar essas variáveis, faça um novo deploy. A API retorna um erro JSON
+quando a configuração de autenticação estiver ausente ou inválida.
+
+Validação antes de publicar:
+
+```bash
+npm run check
+npm test
+npm run build
+npm run test:production
+```
+
+O último comando carrega o entrypoint real com Node, testa respostas HTTP JSON
+e verifica a ausência dos scripts Manus no HTML. Não cria contas nem acessa o
+banco. A validação de cadastro persistente exige um banco configurado.

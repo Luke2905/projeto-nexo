@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
+import { ENV } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { addFriend, createLocalUser, getFriends, getGameHistory, getLeaderboard, getUserByUsername, giveUpGame, recordGameSession, retryGame, updateUserProfile } from "./db";
@@ -15,6 +16,15 @@ import { storagePut } from "./storage";
 
 const failedLogins = new Map<string, { count: number; resetAt: number }>();
 const usernameSchema = z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_.-]+$/, "Use apenas letras, números, ponto, hífen ou sublinhado.");
+function assertLocalAuthConfigured() {
+  if (ENV.cookieSecret.length < 32 || !ENV.databaseUrl) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Autenticação indisponível. Verifique a configuração do servidor.",
+    });
+  }
+}
+
 const passwordSchema = z.string().min(8, "A senha precisa ter pelo menos 8 caracteres.").max(128);
 
 /**
@@ -91,6 +101,7 @@ export const appRouter = router({
     register: publicProcedure
       .input(z.object({ username: usernameSchema, name: z.string().trim().min(2).max(80), password: passwordSchema }))
       .mutation(async ({ ctx, input }) => {
+        assertLocalAuthConfigured();
         const username = normalizeUsername(input.username);
         if (await getUserByUsername(username)) throw new TRPCError({ code: "CONFLICT", message: "Esse usuário já está em uso." });
         const user = await createLocalUser({ username, name: input.name.trim(), passwordHash: await hashPassword(input.password) });
@@ -101,6 +112,7 @@ export const appRouter = router({
     login: publicProcedure
       .input(z.object({ username: usernameSchema, password: z.string().min(1).max(128) }))
       .mutation(async ({ ctx, input }) => {
+        assertLocalAuthConfigured();
         const username = normalizeUsername(input.username);
         const rateKey = `${ctx.req.ip ?? "unknown"}:${username}`;
         checkRateLimit(rateKey);

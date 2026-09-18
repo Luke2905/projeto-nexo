@@ -77,6 +77,7 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 function vitePluginManusDebugCollector(): Plugin {
   return {
     name: "manus-debug-collector",
+    apply: "serve",
 
     transformIndexHtml(html) {
       if (process.env.NODE_ENV === "production") {
@@ -150,7 +151,13 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  { ...jsxLocPlugin(), apply: "serve" as const },
+  { ...vitePluginManusRuntime(), apply: "serve" as const },
+  vitePluginManusDebugCollector(),
+];
 
 export default defineConfig({
   plugins,
