@@ -278,7 +278,11 @@ Palpites em desafios futuros ou com datas inválidas são recusados; desafios pa
 O catálogo e as respostas permanecem exclusivamente no servidor.
 
 O "Arquivo diário" oferece todos os dias já decorridos do mês atual, inclusive
-para visitantes, no computador e no celular. As respostas antigas e os IDs
+para visitantes, no computador e no celular. Os dias aparecem em um calendário
+mensal na lateral do desktop e em um painel compacto no celular, que fecha após
+a seleção. Hoje, o dia selecionado e o progresso têm indicadores próprios; dias
+futuros ficam desabilitados. A grade segue o calendário UTC do servidor, inclusive
+em fevereiro bissexto. As respostas antigas e os IDs
 `daily-AAAA-MM-DD` são preservados. Cada dia tem progresso separado; os palpites
 do visitante são mantidos em memória ao alternar entre desafios na mesma aba
 (não sobrevivem a um recarregamento). Contas autenticadas continuam salvando no

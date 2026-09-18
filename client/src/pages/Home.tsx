@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import AppearanceSwitcher from "@/components/AppearanceSwitcher";
+import DailyCalendar, { type DailyCalendarStatus } from "@/components/DailyCalendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useVisualTheme } from "@/contexts/VisualThemeContext";
 
 type Mode = "daily" | "themes";
@@ -87,10 +89,10 @@ export default function Home() {
   const [hintLoading, setHintLoading] = useState(false);
   const [latestWord, setLatestWord] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const drafts = useRef(new Map<string, Guess[]>());
   const draftKey = `${user?.id ?? "guest"}:${activeId}`;
   const archiveDays = archive.data?.challenges ?? [];
-  const pastDays = archiveDays.filter(day => day.challengeId !== `daily-${archive.data?.today}`);
   // A selected day can move outside this month's archive at midnight/month end.
   const selectedDaily = trpc.challenges.getDaily.useQuery(
     { date: activeId?.slice(6) ?? "" },
@@ -143,6 +145,13 @@ export default function Home() {
   const lost = Boolean(activeRecord?.lost);
   const orderedGuesses = useMemo(() => [...guesses].sort((a, b) => a.rank - b.rank), [guesses]);
   const bestGuess = orderedGuesses[0];
+  const calendarDays = archiveDays.map(day => {
+    const record = historyMap.get(day.challengeId);
+    const local = drafts.current.get(`${user?.id ?? "guest"}:${day.challengeId}`);
+    const status: DailyCalendarStatus = record?.solved || local?.some(guess => guess.rank === 1) ? "solved"
+      : record?.lost ? "lost" : (record?.guesses ?? 0) > 0 || local?.length ? "progress" : "available";
+    return { challengeId: day.challengeId, status };
+  });
 
   // Restore progress when switching challenges
   useEffect(() => {
@@ -255,6 +264,16 @@ export default function Home() {
   const challengeAccent = activeChallenge?.accent ?? "coral";
   const challengePrompt = activeChallenge?.prompt ?? "";
 
+  function renderCalendar() {
+    if (archive.isError) return <button className="text-button" onClick={() => archive.refetch()}>Recarregar calendário</button>;
+    if (!archive.data) return <p className="archive-note" role="status">Carregando calendário…</p>;
+    return <DailyCalendar today={archive.data.today} days={calendarDays} activeId={activeId}
+      disabled={switchingDisabled} onSelect={id => {
+        selectChallenge(id, "Diário");
+        setCalendarOpen(false);
+      }} />;
+  }
+
   return (
     <main className="app-shell min-h-screen overflow-hidden">
       <div className="ambient-orb orb-one" />
@@ -298,31 +317,28 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="mobile-theme-scroll">
+            <div className="mobile-daily-picker">
               {daily.data && (
                 <button
                   className={activeId === daily.data.challengeId ? "mobile-theme-chip active coral" : "mobile-theme-chip coral"}
                   onClick={() => selectChallenge(daily.data!.challengeId, "Diário")}
+                  disabled={switchingDisabled}
                 >
                   <span />Hoje
                 </button>
               )}
-              {archive.isError && <button className="mobile-theme-chip" onClick={() => archive.refetch()}>Recarregar dias anteriores</button>}
-              {pastDays.map((day) => {
-                const completed = Boolean(historyMap.get(day.challengeId)?.solved);
-                return (
-                  <button
-                    key={day.challengeId}
-                    className={activeId === day.challengeId ? "mobile-theme-chip active" : "mobile-theme-chip"}
-                    onClick={() => selectChallenge(day.challengeId, "Diário")}
-                    disabled={switchingDisabled}
-                    aria-label={`Jogar desafio de ${day.label.split(" · ")[0]}`}
-                    aria-pressed={activeId === day.challengeId}
-                  >
-                    <span />{day.label.split(" · ")[0]} {completed && <Check size={12} style={{marginLeft: 4}} />}
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button className="daily-calendar-trigger" type="button" aria-label="Abrir calendário de desafios">
+                    <CalendarDays size={17} />
+                    <span>{activeChallenge?.kind === "Diário" && activeId !== daily.data?.challengeId ? activeChallenge.label.split(" · ")[0] : "Calendário"}</span>
+                    <ChevronRight size={15} />
                   </button>
-                );
-              })}
+                </PopoverTrigger>
+                <PopoverContent className="daily-calendar-popover" align="end" sideOffset={8} collisionPadding={12} aria-label="Calendário de desafios">
+                  {renderCalendar()}
+                </PopoverContent>
+              </Popover>
             </div>
           )}
         </div>
@@ -362,30 +378,7 @@ export default function Home() {
                   ) : (
                     <div className="challenge-row muted-row"><span className="challenge-icon ghost"><History size={14} /></span><span className="challenge-copy"><b>Carregando…</b></span></div>
                   )}
-                  <div className="calendar-heading"><CalendarDays size={13} /> dias anteriores deste mês</div>
-                  {archive.isError && <button className="text-button" onClick={() => archive.refetch()}>Recarregar arquivo diário</button>}
-                  {archive.isPending && <p className="archive-note">Carregando dias anteriores…</p>}
-                  {archive.data && !pastDays.length && <p className="archive-note">O mês está começando. Um novo desafio chega a cada dia.</p>}
-                  <div className="challenge-list daily-archive" aria-label="Desafios anteriores deste mês">
-                    {pastDays.map((day) => {
-                      const record = historyMap.get(day.challengeId);
-                      const completed = Boolean(record?.solved);
-                      return (
-                        <button className={activeId === day.challengeId ? "challenge-row selected" : "challenge-row"} key={day.challengeId}
-                          onClick={() => selectChallenge(day.challengeId, "Diário")}
-                          disabled={switchingDisabled}
-                          aria-label={`Jogar desafio de ${day.label.split(" · ")[0]}`}
-                          aria-pressed={activeId === day.challengeId}>
-                          <span className={completed ? "challenge-icon done" : "challenge-icon ghost"}>{completed ? <Check size={14} /> : <History size={14} />}</span>
-                          <span className="challenge-copy">
-                            <b>{day.label}</b>
-                            <small>{completed ? `resolvido em ${record!.guesses}` : record?.lost ? `perdido · ${3 - (record.retryCount ?? 0)} tentativas` : record || drafts.current.get(`${user?.id ?? "guest"}:${day.challengeId}`)?.length ? "em andamento" : "disponível para jogar"}</small>
-                          </span>
-                          {completed && <Check size={15} className="row-check" />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {renderCalendar()}
                 </>
               ) : (
                 allThemes.map((theme) => (
