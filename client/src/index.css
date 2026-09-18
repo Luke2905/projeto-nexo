@@ -136,7 +136,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #ef775f; outline-
 .mode-button small { font-size: 9px; color: rgba(255, 248, 234, .42); }
 .mode-chevron { margin-left: auto; opacity: .6; }
 .rail-section-label { margin: 40px 0 12px 10px; color: rgba(255, 248, 234, .37); font-size: 8px; letter-spacing: .19em; text-transform: uppercase; }
-.challenge-list { display: grid; gap: 2px; }
+  .challenge-list { display: grid; gap: 2px; }
+  .daily-archive { max-height: 330px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #44536c transparent; padding-right: 4px; }
+  .archive-note { padding: 8px; color: #99a8c0; font-size: 11px; line-height: 1.6; }
 .challenge-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 8px; border-radius: 7px; background: transparent; color: rgba(255, 248, 234, .67); text-align: left; transition: background .2s ease; }
 .challenge-row:hover { background: rgba(255, 248, 234, .07); }
 .challenge-row.selected { background: rgba(239, 119, 95, .13); color: #fff8ea; }

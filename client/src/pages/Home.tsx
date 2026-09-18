@@ -1,7 +1,7 @@
 import { normalizeWord } from "@shared/words";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -47,7 +47,8 @@ export default function Home() {
   const utils = trpc.useUtils();
 
   // ── Server queries ──────────────────────────────────────────────────────────
-  const daily = trpc.challenges.getDaily.useQuery();
+  const daily = trpc.challenges.getDaily.useQuery(undefined, { refetchInterval: 60_000 });
+  const archive = trpc.challenges.getDailyArchive.useQuery(undefined, { refetchInterval: 60_000 });
   const themes = trpc.challenges.getThemes.useQuery();
   const gameHistory = trpc.games.history.useQuery(undefined, { enabled: isAuthenticated, retry: false });
 
@@ -55,10 +56,14 @@ export default function Home() {
   const submitGuessMutation = trpc.challenges.submitGuess.useMutation();
   const saveProgress = trpc.games.saveProgress.useMutation({
     onSuccess: () => utils.games.history.invalidate(),
+    onError: (_error, variables) => {
+      if (variables.challengeId === activeId) setNotice("Seu progresso está nesta aba, mas não foi salvo na conta. Tente novamente em instantes.");
+    },
   });
   const giveUp = trpc.games.giveUp.useMutation({
     onSuccess: () => {
       utils.games.history.invalidate();
+      if (activeId) drafts.current.delete(`${user?.id ?? "guest"}:${activeId}`);
       setGuesses([]);
       setNotice("Dia marcado como perdido. Você ainda pode tentar novamente.");
     },
@@ -66,6 +71,7 @@ export default function Home() {
   const retryGame = trpc.games.retry.useMutation({
     onSuccess: () => {
       utils.games.history.invalidate();
+      if (activeId) drafts.current.delete(`${user?.id ?? "guest"}:${activeId}`);
       setGuesses([]);
       setNotice("Nova tentativa liberada. O mapa foi reiniciado.");
     },
@@ -81,6 +87,16 @@ export default function Home() {
   const [hintLoading, setHintLoading] = useState(false);
   const [latestWord, setLatestWord] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
+  const drafts = useRef(new Map<string, Guess[]>());
+  const draftKey = `${user?.id ?? "guest"}:${activeId}`;
+  const archiveDays = archive.data?.challenges ?? [];
+  const pastDays = archiveDays.filter(day => day.challengeId !== `daily-${archive.data?.today}`);
+  // A selected day can move outside this month's archive at midnight/month end.
+  const selectedDaily = trpc.challenges.getDaily.useQuery(
+    { date: activeId?.slice(6) ?? "" },
+    { enabled: Boolean(activeId?.startsWith("daily-") && activeId !== daily.data?.challengeId && !archiveDays.some(day => day.challengeId === activeId)), staleTime: Infinity },
+  );
+  const switchingDisabled = submitGuessMutation.isPending || hintLoading || giveUp.isPending || retryGame.isPending;
 
   useEffect(() => {
     if (!celebrating) return;
@@ -105,9 +121,13 @@ export default function Home() {
   const activeChallenge = useMemo(() => {
     if (!activeId) return null;
     if (activeId === daily.data?.challengeId) return daily.data ? { ...daily.data, kind: "Diário" as const } : null;
+    if (activeId.startsWith("daily-")) {
+      const day = archiveDays.find(day => day.challengeId === activeId) ?? selectedDaily.data;
+      return day ? { ...day, kind: "Diário" as const } : null;
+    }
     const theme = allThemes.find((t) => t.id === activeId);
     return theme ? { ...theme, challengeId: theme.id, kind: "Tema" as const } : null;
-  }, [activeId, daily.data, allThemes]);
+  }, [activeId, daily.data, allThemes, archive.data, selectedDaily.data]);
 
   // Disabled queries retain cached results; only expose history for a session.
   const history = useMemo(
@@ -137,6 +157,8 @@ export default function Home() {
     } else if (record?.lost) {
       setGuesses([]);
       setNotice(`Dia perdido. Tentativa ${record.retryCount} de 3 disponível.`);
+    } else if (drafts.current.has(draftKey)) {
+      setGuesses(drafts.current.get(draftKey)!);
     } else if (record?.progressJson) {
       try {
         const saved = JSON.parse(record.progressJson) as Guess[];
@@ -148,10 +170,11 @@ export default function Home() {
     } else {
       setGuesses([]);
     }
-  }, [activeId, historyMap]);
+  }, [activeId, historyMap, draftKey]);
 
   // ── Actions ─────────────────────────────────────────────────────────────────
   function selectChallenge(id: string, kind: "Diário" | "Tema") {
+    if (switchingDisabled) return;
     setActiveId(id);
     setMode(kind === "Diário" ? "daily" : "themes");
   }
@@ -168,6 +191,7 @@ export default function Home() {
     try {
       const result = await submitGuessMutation.mutateAsync({ challengeId: activeId, word });
       const nextGuesses = [result, ...guesses];
+      drafts.current.set(draftKey, nextGuesses);
       setGuesses(nextGuesses);
       setLatestWord(result.word);
       setCelebrating(result.solved);
@@ -212,6 +236,7 @@ export default function Home() {
   }
 
   function resetGame() {
+    drafts.current.set(draftKey, []);
     setLatestWord(null);
     setCelebrating(false);
     setGuesses([]);
@@ -220,9 +245,9 @@ export default function Home() {
   }
 
   // ── Render helpers ──────────────────────────────────────────────────────────
-  const displayDate = daily.data
+  const displayDate = activeChallenge?.kind === "Diário"
     ? new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(
-        new Date(`${daily.data.challengeId.replace("daily-", "")}T12:00:00Z`),
+        new Date(`${activeChallenge.challengeId.replace("daily-", "")}T12:00:00Z`),
       )
     : "…";
 
@@ -282,16 +307,19 @@ export default function Home() {
                   <span />Hoje
                 </button>
               )}
-              {history.slice(0, 7).map((record) => {
-                if (daily.data?.challengeId === record.challengeId) return null;
-                const completed = Boolean(record.solved);
+              {archive.isError && <button className="mobile-theme-chip" onClick={() => archive.refetch()}>Recarregar dias anteriores</button>}
+              {pastDays.map((day) => {
+                const completed = Boolean(historyMap.get(day.challengeId)?.solved);
                 return (
                   <button
-                    key={record.id}
-                    className={activeId === record.challengeId ? "mobile-theme-chip active" : "mobile-theme-chip"}
-                    onClick={() => selectChallenge(record.challengeId, "Diário")}
+                    key={day.challengeId}
+                    className={activeId === day.challengeId ? "mobile-theme-chip active" : "mobile-theme-chip"}
+                    onClick={() => selectChallenge(day.challengeId, "Diário")}
+                    disabled={switchingDisabled}
+                    aria-label={`Jogar desafio de ${day.label.split(" · ")[0]}`}
+                    aria-pressed={activeId === day.challengeId}
                   >
-                    <span />{record.challengeId.replace("daily-", "")} {completed && <Check size={12} style={{marginLeft: 4}} />}
+                    <span />{day.label.split(" · ")[0]} {completed && <Check size={12} style={{marginLeft: 4}} />}
                   </button>
                 );
               })}
@@ -303,7 +331,7 @@ export default function Home() {
           <aside className="side-rail">
             <div className="rail-heading">
               <span>jogar</span>
-              <span className="rail-count">{1 + allThemes.length} mapas</span>
+              <span className="rail-count">{(archiveDays.length || 1) + allThemes.length} mapas</span>
             </div>
             <nav className="mode-switcher" aria-label="Modos de jogo">
               <button className={mode === "daily" ? "mode-button active" : "mode-button"} onClick={() => setMode("daily")}>
@@ -334,19 +362,27 @@ export default function Home() {
                   ) : (
                     <div className="challenge-row muted-row"><span className="challenge-icon ghost"><History size={14} /></span><span className="challenge-copy"><b>Carregando…</b></span></div>
                   )}
-                  <div className="calendar-heading"><CalendarDays size={13} /> histórico de partidas</div>
-                  <div className="challenge-list">
-                    {history.slice(0, 7).map((record) => {
-                      const completed = Boolean(record.solved);
+                  <div className="calendar-heading"><CalendarDays size={13} /> dias anteriores deste mês</div>
+                  {archive.isError && <button className="text-button" onClick={() => archive.refetch()}>Recarregar arquivo diário</button>}
+                  {archive.isPending && <p className="archive-note">Carregando dias anteriores…</p>}
+                  {archive.data && !pastDays.length && <p className="archive-note">O mês está começando. Um novo desafio chega a cada dia.</p>}
+                  <div className="challenge-list daily-archive" aria-label="Desafios anteriores deste mês">
+                    {pastDays.map((day) => {
+                      const record = historyMap.get(day.challengeId);
+                      const completed = Boolean(record?.solved);
                       return (
-                        <div className="challenge-row muted-row" key={record.id}>
+                        <button className={activeId === day.challengeId ? "challenge-row selected" : "challenge-row"} key={day.challengeId}
+                          onClick={() => selectChallenge(day.challengeId, "Diário")}
+                          disabled={switchingDisabled}
+                          aria-label={`Jogar desafio de ${day.label.split(" · ")[0]}`}
+                          aria-pressed={activeId === day.challengeId}>
                           <span className={completed ? "challenge-icon done" : "challenge-icon ghost"}>{completed ? <Check size={14} /> : <History size={14} />}</span>
                           <span className="challenge-copy">
-                            <b>{record.challengeId.replace("daily-", "")}</b>
-                            <small>{completed ? `resolvido em ${record.guesses}` : record.lost ? `perdido · ${3 - (record.retryCount ?? 0)} tentativas` : "em andamento"}</small>
+                            <b>{day.label}</b>
+                            <small>{completed ? `resolvido em ${record!.guesses}` : record?.lost ? `perdido · ${3 - (record.retryCount ?? 0)} tentativas` : record || drafts.current.get(`${user?.id ?? "guest"}:${day.challengeId}`)?.length ? "em andamento" : "disponível para jogar"}</small>
                           </span>
                           {completed && <Check size={15} className="row-check" />}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -390,7 +426,7 @@ export default function Home() {
               <div className="game-card-head">
                 <div>
                   <p className="card-kicker">{visualTheme === "cartoon" && <Target size={13} />}encontre a palavra</p>
-                  <h1>{activeChallenge?.kind === "Diário" ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
+                  <h1>{activeChallenge?.kind === "Diário" ? activeId === daily.data?.challengeId ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge.label.split(" · ")[0]}?` : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
                 </div>
                 <div className="attempt-badge"><span>tentativas</span><strong key={guesses.length}>{guesses.length.toString().padStart(2, "0")}</strong></div>
               </div>
@@ -405,9 +441,9 @@ export default function Home() {
                   placeholder="Digite uma palavra..."
                   aria-label="Digite uma palavra"
                   autoComplete="off"
-                  disabled={solved || lost || submitGuessMutation.isPending}
+                  disabled={!activeChallenge || solved || lost || submitGuessMutation.isPending}
                 />
-                <button type="submit" aria-label={submitGuessMutation.isPending ? "Enviando palpite" : "Enviar palpite"} disabled={solved || lost || submitGuessMutation.isPending}>
+                <button type="submit" aria-label={submitGuessMutation.isPending ? "Enviando palpite" : "Enviar palpite"} disabled={!activeChallenge || solved || lost || submitGuessMutation.isPending}>
                   {submitGuessMutation.isPending ? <LoaderCircle size={19} className="guess-loader" /> : <ArrowRight size={19} />}
                 </button>
               </form>
@@ -497,7 +533,7 @@ export default function Home() {
             <div className="insight-block"><div className="insight-label"><span className="insight-number">01</span><span>como jogar</span></div><p>Digite qualquer palavra. O número mostra o quanto ela está perto da resposta — quanto menor o ranking, melhor.</p></div>
             <div className="insight-block"><div className="insight-label"><span className="insight-number">02</span><span>uma pista</span></div><div className="tip-card"><Lightbulb size={16} /><p>Palavras com contexto parecido costumam aparecer perto umas das outras.</p></div></div>
             <div className="insight-bottom">
-              <div className="score-line"><span>hoje você já jogou</span><strong>{guesses.length} <small>palavras</small></strong></div>
+              <div className="score-line"><span>neste desafio você jogou</span><strong>{guesses.length} <small>palavras</small></strong></div>
               <div className="score-line"><span>modo atual</span><strong className="mode-value">{activeChallenge?.kind ?? "—"}</strong></div>
             </div>
           </aside>

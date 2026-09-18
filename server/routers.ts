@@ -142,9 +142,20 @@ export const appRouter = router({
      * Returns today's daily challenge metadata (no answer).
      * The date is always read from the server clock to prevent spoofing.
      */
-    getDaily: publicProcedure.query(async () => {
-      const { getDailyChallengeMeta, todayUTC } = await import("./game/engine");
-      return getDailyChallengeMeta(todayUTC());
+    getDaily: publicProcedure
+      .input(z.object({ date: z.string().max(10) }).optional())
+      .query(async ({ input }) => {
+        const { getDailyChallengeMeta, getEntryForChallenge, todayUTC } = await import("./game/engine");
+        const date = input?.date ?? todayUTC();
+        if (!getEntryForChallenge(`daily-${date}`)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado ou ainda não disponível." });
+        }
+        return getDailyChallengeMeta(date);
+      }),
+
+    getDailyArchive: publicProcedure.query(async () => {
+      const { getDailyArchive } = await import("./game/engine");
+      return getDailyArchive();
     }),
 
     /**

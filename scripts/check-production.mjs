@@ -26,6 +26,16 @@ async function request(path, options, status) {
 try {
   const me = await request("/api/trpc/auth.me?batch=1", {}, 200);
   assert.equal(me[0].result.data.json, null);
+  const dailyBatch = await request("/api/trpc/challenges.getDaily,challenges.getDailyArchive?batch=1", {
+    headers: { cookie: "app_session_id=invalid-session" },
+  }, 200);
+  const today = new Date().toISOString().slice(0, 10);
+  const archive = dailyBatch[1].result.data.json;
+  assert.equal(dailyBatch[0].result.data.json.challengeId, `daily-${today}`);
+  assert.equal(archive.today, today);
+  assert.equal(archive.challenges.length, Number(today.slice(8)));
+  assert.equal(archive.challenges.at(-1).challengeId, `daily-${today.slice(0, 7)}-01`);
+  assert.ok(archive.challenges.every(day => !('word' in day) && !('aliases' in day)));
   await request("/api/nonexistent", {}, 404);
   const invalid = await request("/api/trpc/auth.register?batch=1", {
     method: "POST",

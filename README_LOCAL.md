@@ -254,3 +254,80 @@ aliases: eles também podem conter erros de escrita. A base pode conter palavras
 raras ou nomes próprios e pode não cobrir neologismos. A validação ortográfica
 não modifica o algoritmo de proximidade. Créditos e licença: licenses/dictionary-pt.txt
 (original do pacote) e THIRD_PARTY_NOTICES.md.
+
+### Sorteio do desafio diário
+
+Até 18/09/2026 (UTC), o desafio mantém a rotação original de 50 palavras para
+preservar partidas e históricos. A partir de 19/09/2026 (UTC), usa o catálogo
+versionado de 300 palavras em `server/game/dailyCatalogV2.ts`, com relações
+revisadas e vocabulário validado pelo dicionário local.
+
+`server/game/dailySchedule.ts` embaralha cada ciclo de 300 dias com uma ordem
+pseudoaleatória determinística. Cada palavra aparece uma vez por ciclo e fica
+excluída nos 180 dias seguintes. O intervalo também vale entre ciclos e leva
+em conta os últimos 180 dias da sequência antiga na transição. A ordem é
+reconstruída pela data, sem depender de cron, banco, API externa, ordem das
+requisições ou memória persistente. Todos recebem a mesma resposta naquele dia,
+inclusive após reiniciar o servidor ou iniciar uma instância serverless.
+
+A troca continua à meia-noite UTC (21h do dia anterior em São Paulo, UTC−3).
+A tela consulta o dia atual e o arquivo mensal ao carregar, ao recuperar o foco
+e a cada minuto enquanto a aba está ativa. Um novo dia aparece automaticamente;
+uma partida em andamento continua selecionada até o jogador escolher outro dia.
+Palpites em desafios futuros ou com datas inválidas são recusados; desafios passados continuam válidos.
+O catálogo e as respostas permanecem exclusivamente no servidor.
+
+O "Arquivo diário" oferece todos os dias já decorridos do mês atual, inclusive
+para visitantes, no computador e no celular. As respostas antigas e os IDs
+`daily-AAAA-MM-DD` são preservados. Cada dia tem progresso separado; os palpites
+do visitante são mantidos em memória ao alternar entre desafios na mesma aba
+(não sobrevivem a um recarregamento). Contas autenticadas continuam salvando no
+histórico. Na virada do mês, a lista passa ao novo mês e uma partida antiga já
+selecionada continua acessível pela consulta de sua data.
+
+Não há inserção em lote nem tarefa agendada para criar desafios no TiDB. A
+geração é determinística e não usa o banco. `shared/publicChallenges.ts` contém
+a lista explícita de rotas independentes da conta: o cliente as envia em lotes
+separados e o contexto do servidor não autentica esses lotes, mesmo com cookies.
+Isso evita que o carregamento de desafios aguarde o banco sair de inatividade.
+Lotes mistos e rotas protegidas continuam exigindo a autenticação normal.
+
+O salvamento do progresso mantém a política de inicialização existente: até
+duas tentativas de conexão de 20 segundos, consultas de prontidão de 5 segundos
+e intervalo de 1,5 segundo, aproximadamente 51,5 segundos dentro do limite de
+60 segundos da função. Gravações não são repetidas automaticamente. Os testes
+simulam conexão lenta e indisponibilidade; a verificação local sem credenciais
+não exercita o TiDB de produção.
+
+Não altere a ordem ou o tamanho de `WORD_CATALOG`, nem o catálogo, a semente ou
+o algoritmo de uma versão já publicada: isso mudaria respostas de dias passados.
+Para ampliar novamente, crie uma nova versão com data de ativação futura e
+preserve as anteriores. Se esta versão ainda não tiver sido publicada e a
+publicação ocorrer após a data planejada, ajuste a ativação antes da primeira
+publicação para não substituir desafios já jogados na versão antiga.
+
+### Fontes públicas de palavras avaliadas
+
+Pesquisa e consultas realizadas em 18/09/2026:
+
+- [Papalavras](https://github.com/viniciusmesquitac/papalavras-server): oferece
+  rotas para sorteio e verificação de palavras em pt-BR. O endereço Heroku do
+  README retornou HTTP 404, "No such app". O código usa Swift/Vapor e PostgreSQL;
+  a árvore do repositório consultada não inclui a base de palavras. O sorteio
+  ocorre a cada requisição, sem calendário ou histórico de repetições, e o
+  modelo não fornece definições nem relações semânticas. Não foi integrado.
+- [Dicionário Aberto](https://api.dicionario-aberto.net/index.html): a consulta
+  `/random` respondeu HTTP 200. Oferece também `/word/{palavra}` para consultar
+  verbetes. Pode servir como fonte de candidatos para revisão, mas não garante
+  vocabulário cotidiano brasileiro. Sua rota `/wotd` muda a cada duas horas,
+  segundo a documentação, e `/near` mede semelhança de escrita (Levenshtein),
+  não de significado. Não foi integrado ao sorteio.
+- [MediaWiki/Wikcionário](https://www.mediawiki.org/wiki/API:Categorymembers):
+  permite consultar páginas por categoria, útil para obter candidatos; requer
+  tratamento do conteúdo e filtragem por idioma e classe de palavra.
+
+Uma futura importação deve ocorrer fora da requisição do jogador, com revisão
+das palavras, suas relações semânticas e das condições de reutilização da fonte.
+Depois, os candidatos aprovados entram em uma nova versão do catálogo. Uma API
+de palavras aleatórias, sozinha, não garante uma resposta diária compartilhada,
+ausência de repetições ou a qualidade do cálculo de proximidade do jogo.

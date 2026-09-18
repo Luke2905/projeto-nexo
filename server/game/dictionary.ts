@@ -30,10 +30,10 @@ export type WordEntry = {
 };
 
 /**
- * The main daily challenge word catalog.
+ * The legacy daily challenge word catalog, frozen at 50 entries.
  * Order here defines the rotation — day 0 from EPOCH is index 0, day 1 is index 1, etc.
- * To add new words, append to the end of this array.
- * Never reorder or delete entries, as that would break the date→word mapping.
+ * Never add, reorder or delete entries: even appending changes the modulo and
+ * breaks historical answers. Expand through a new version in dailySchedule.ts.
  */
 export const WORD_CATALOG: WordEntry[] = [
   {

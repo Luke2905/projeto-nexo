@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { isRecognizedWord } from "./lexicon";
 import { normalizeWord } from "../../shared/words";
 import { WORD_CATALOG, THEME_CATALOG } from "./dictionary";
+import { DAILY_CATALOG_V2 } from "./dailyCatalogV2";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -28,7 +29,7 @@ describe("Portuguese guess validation", () => {
   });
 
   it("keeps all challenge answers and single-word clues playable", () => {
-    for (const entry of [...WORD_CATALOG, ...THEME_CATALOG]) {
+    for (const entry of [...WORD_CATALOG, ...DAILY_CATALOG_V2, ...THEME_CATALOG]) {
       for (const word of [entry.word, ...Object.keys(entry.aliases)].filter(word => !word.includes(" "))) {
         expect(isRecognizedWord(word), word).toBe(true);
       }
