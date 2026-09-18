@@ -1,11 +1,11 @@
 /** Database readiness is shared by concurrent requests in each function instance. */
 import { TRPCError } from "@trpc/server";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
-import mysql, { type PoolConnection } from "mysql2/promise";
+import mysql, { type Pool, type PoolConnection } from "mysql2/promise";
 import { ENV } from "../_core/env";
+import { databasePoolOptions } from "./options";
 
 // Two attempts take at most about 52 seconds, leaving time within Vercel's 60s.
-const CONNECT_TIMEOUT_MS = 20_000;
 const READY_QUERY_TIMEOUT_MS = 5_000;
 const MAX_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 1_500;
@@ -25,19 +25,9 @@ function errorCode(error: unknown): string {
 }
 
 async function initializeDatabase(): Promise<MySql2Database> {
-  const pool = mysql.createPool({
-    uri: ENV.databaseUrl,
-    connectTimeout: CONNECT_TIMEOUT_MS,
-    connectionLimit: 3,
-    maxIdle: 1,
-    idleTimeout: 60_000,
-    waitForConnections: true,
-    queueLimit: 10,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
-  });
-
+  let pool: Pool | undefined;
   try {
+    pool = mysql.createPool(databasePoolOptions(ENV.databaseUrl));
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       let connection: PoolConnection | undefined;
       try {
@@ -58,7 +48,8 @@ async function initializeDatabase(): Promise<MySql2Database> {
     }
     throw new Error("Database readiness attempts exhausted");
   } catch (error) {
-    await pool.end().catch(() => undefined);
+    await pool?.end().catch(() => undefined);
+    console.error(`[Database] Initialization failed (${errorCode(error)}).`);
     // Throw instead of returning null: an outage must not look like a missing user.
     throw new TRPCError({
       code: "SERVICE_UNAVAILABLE",

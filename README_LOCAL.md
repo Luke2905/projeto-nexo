@@ -216,3 +216,14 @@ O pool conectado é reutilizado, com até três conexões por instância.
 Cadastro e login mantêm o formulário ocupado durante a requisição e exibem um
 aviso após cinco segundos. Os testes de conexão simulam latência e falhas com
 relógio controlado; não precisam de acesso ao TiDB de produção.
+
+### TLS obrigatório no TiDB Cloud
+
+Conexões para hosts `*.tidbcloud.com` habilitam TLS automaticamente, com
+`rejectUnauthorized: true` e `verifyIdentity: true`. Isso evita a recusa
+`Connections using insecure transport are prohibited` quando `DATABASE_URL`
+não inclui o parâmetro SSL. Uma CA personalizada no objeto JSON `ssl` da URL
+é preservada; a validação de certificado e hostname permanece habilitada.
+Conexões MySQL de outros provedores mantêm suas opções originais na URL.
+
+Referência: https://docs.pingcap.com/tidbcloud/connect-to-tidb-cluster-serverless/
