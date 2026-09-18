@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { ArrowLeft, Check, Gamepad2, LockKeyhole, Sparkles, Trophy, Users, Zap } from "lucide-react";
 import { Link } from "wouter";
@@ -17,22 +17,35 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [slowRequest, setSlowRequest] = useState(false);
   const register = trpc.auth.register.useMutation({
     onSuccess: () => { window.location.href = "/perfil"; },
     onError: (cause) => setError(cause.message),
+    retry: false,
   });
   const login = trpc.auth.login.useMutation({
     onSuccess: () => { window.location.href = "/perfil"; },
     onError: (cause) => setError(cause.message),
+    retry: false,
   });
   const pending = register.isPending || login.isPending;
 
+  useEffect(() => {
+    if (!pending) {
+      setSlowRequest(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlowRequest(true), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (pending) return;
     setError("");
     if (tab === "register") register.mutate({ name, username, password });
     else login.mutate({ username, password });
   }
 
-  return <main className="register-shell"><div className="register-aurora aurora-one" /><div className="register-aurora aurora-two" /><div className="register-wrap"><header className="register-header"><Link href="/" className="back-link"><ArrowLeft size={16} /> voltar ao jogo</Link><div className="register-brand">nexo<span>•</span></div><span className="register-status"><span /> protegido</span></header><section className="register-grid"><div className="register-copy"><span className="register-kicker"><Sparkles size={13} /> sua jornada, salva</span><h1>Um mapa só seu.<br /><em>Mais perto de tudo.</em></h1><p>Crie uma conta simples para guardar suas partidas, acompanhar sua evolução e disputar espaço no ranking com quem joga com você.</p><div className="register-benefits">{benefits.map(({ icon: Icon, title, text }) => <div className="register-benefit" key={title}><div><Icon size={16} /></div><span><strong>{title}</strong><small>{text}</small></span></div>)}</div></div><div className="register-card"><div className="register-card-top"><div className="register-symbol"><Gamepad2 size={21} /></div><span>nexo<span>•</span> id</span></div>{isAuthenticated ? <div className="already-in"><div className="already-check"><Check size={23} /></div><h2>Você já está dentro.</h2><p>Seu progresso está sendo guardado para <strong>{user?.name ?? "você"}</strong>.</p><Link href="/perfil" className="register-primary">ver meu perfil <ArrowLeft size={15} /></Link></div> : <><div className="auth-tabs"><button type="button" className={tab === "register" ? "auth-tab active" : "auth-tab"} onClick={() => { setTab("register"); setError(""); }}>criar conta</button><button type="button" className={tab === "login" ? "auth-tab active" : "auth-tab"} onClick={() => { setTab("login"); setError(""); }}>entrar</button></div><h2>{tab === "register" ? "Comece seu cadastro" : "Bom te ver de novo"}</h2><p className="register-card-desc">{tab === "register" ? "Uma conta para salvar cada descoberta." : "Entre para continuar seu mapa."}</p><form className="auth-form" onSubmit={submit}>{tab === "register" && <label>nome de exibição<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Como quer ser chamado?" required minLength={2} maxLength={80} /></label>}<label>usuário<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="ex.: jogador_nexo" pattern="[A-Za-z0-9_.-]{3,32}" required /></label><label>senha<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="mínimo de 8 caracteres" required minLength={tab === "register" ? 8 : 1} maxLength={128} /></label>{error && <div className="auth-error" role="alert">{error}</div>}<button className="oauth-button" disabled={pending}>{pending ? "aguarde..." : tab === "register" ? "criar minha conta" : "entrar no NEXO"}</button></form><div className="register-divider"><span>seguro por padrão</span></div><div className="register-trust"><LockKeyhole size={13} /><span>Sua senha é protegida com scrypt + salt aleatório e nunca é armazenada em texto puro.</span></div></>}<Link href="/" className="register-secondary">continuar sem cadastro <ArrowLeft size={13} /></Link></div></section><footer className="register-footer"><span>nexo<span>•</span> id</span><span>palavras são melhores quando compartilhadas</span></footer></div></main>;
+  return <main className="register-shell"><div className="register-aurora aurora-one" /><div className="register-aurora aurora-two" /><div className="register-wrap"><header className="register-header"><Link href="/" className="back-link"><ArrowLeft size={16} /> voltar ao jogo</Link><div className="register-brand">nexo<span>•</span></div><span className="register-status"><span /> protegido</span></header><section className="register-grid"><div className="register-copy"><span className="register-kicker"><Sparkles size={13} /> sua jornada, salva</span><h1>Um mapa só seu.<br /><em>Mais perto de tudo.</em></h1><p>Crie uma conta simples para guardar suas partidas, acompanhar sua evolução e disputar espaço no ranking com quem joga com você.</p><div className="register-benefits">{benefits.map(({ icon: Icon, title, text }) => <div className="register-benefit" key={title}><div><Icon size={16} /></div><span><strong>{title}</strong><small>{text}</small></span></div>)}</div></div><div className="register-card"><div className="register-card-top"><div className="register-symbol"><Gamepad2 size={21} /></div><span>nexo<span>•</span> id</span></div>{isAuthenticated ? <div className="already-in"><div className="already-check"><Check size={23} /></div><h2>Você já está dentro.</h2><p>Seu progresso está sendo guardado para <strong>{user?.name ?? "você"}</strong>.</p><Link href="/perfil" className="register-primary">ver meu perfil <ArrowLeft size={15} /></Link></div> : <><div className="auth-tabs"><button type="button" disabled={pending} className={tab === "register" ? "auth-tab active" : "auth-tab"} onClick={() => { setTab("register"); setError(""); }}>criar conta</button><button type="button" disabled={pending} className={tab === "login" ? "auth-tab active" : "auth-tab"} onClick={() => { setTab("login"); setError(""); }}>entrar</button></div><h2>{tab === "register" ? "Comece seu cadastro" : "Bom te ver de novo"}</h2><p className="register-card-desc">{tab === "register" ? "Uma conta para salvar cada descoberta." : "Entre para continuar seu mapa."}</p><form className="auth-form" onSubmit={submit} aria-busy={pending}>{tab === "register" && <label>nome de exibição<input disabled={pending} value={name} onChange={(event) => setName(event.target.value)} placeholder="Como quer ser chamado?" required minLength={2} maxLength={80} /></label>}<label>usuário<input disabled={pending} value={username} onChange={(event) => setUsername(event.target.value)} placeholder="ex.: jogador_nexo" pattern="[A-Za-z0-9_.-]{3,32}" required /></label><label>senha<input disabled={pending} value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="mínimo de 8 caracteres" required minLength={tab === "register" ? 8 : 1} maxLength={128} /></label>{pending && slowRequest && <p className="register-card-desc" role="status">Está levando um pouco mais de tempo. Estamos preparando sua conexão; mantenha esta página aberta.</p>}{error && <div className="auth-error" role="alert">{error}</div>}<button className="oauth-button" disabled={pending}>{pending ? "aguarde..." : tab === "register" ? "criar minha conta" : "entrar no NEXO"}</button></form><div className="register-divider"><span>seguro por padrão</span></div><div className="register-trust"><LockKeyhole size={13} /><span>Sua senha é protegida com scrypt + salt aleatório e nunca é armazenada em texto puro.</span></div></>}<Link href="/" className="register-secondary">continuar sem cadastro <ArrowLeft size={13} /></Link></div></section><footer className="register-footer"><span>nexo<span>•</span> id</span><span>palavras são melhores quando compartilhadas</span></footer></div></main>;
 }

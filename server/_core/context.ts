@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
 import { sdk } from "./sdk";
@@ -16,6 +17,8 @@ export async function createContext(
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
+    // A database outage must not turn an authenticated request into a guest.
+    if (error instanceof TRPCError && error.code === "SERVICE_UNAVAILABLE") throw error;
     // Authentication is optional for public procedures.
     user = null;
   }

@@ -197,3 +197,22 @@ npm run test:production
 O último comando carrega o entrypoint real com Node, testa respostas HTTP JSON
 e verifica a ausência dos scripts Manus no HTML. Não cria contas nem acessa o
 banco. A validação de cadastro persistente exige um banco configurado.
+
+### Espera pela conexão do TiDB
+
+A inicialização usa um único pool por instância da função. Requisições
+simultâneas compartilham a mesma promessa de conexão. Cada tentativa permite
+20 segundos para conectar e 5 segundos para confirmar a disponibilidade com
+`SELECT 1`. Uma falha transitória de conexão permite uma segunda tentativa,
+após 1,5 segundo; o orçamento inicial é de aproximadamente 52 segundos.
+A função da Vercel tem `maxDuration: 60` para acomodar essa espera.
+
+Credenciais inválidas e erros de certificado não são repetidos. Gravações e
+mutações de cadastro também não são repetidas automaticamente. Se a conexão
+continuar indisponível, a API retorna `SERVICE_UNAVAILABLE` (HTTP 503), fecha o
+pool que falhou e permite uma nova inicialização na próxima requisição.
+O pool conectado é reutilizado, com até três conexões por instância.
+
+Cadastro e login mantêm o formulário ocupado durante a requisição e exibem um
+aviso após cinco segundos. Os testes de conexão simulam latência e falhas com
+relógio controlado; não precisam de acesso ao TiDB de produção.

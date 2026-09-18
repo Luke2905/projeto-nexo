@@ -3,7 +3,8 @@
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.mjs": {
-      "includeFiles": "dist/api.mjs"
+      "includeFiles": "dist/api.mjs",
+      "maxDuration": 60
     }
   },
   "rewrites": [
