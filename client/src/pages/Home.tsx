@@ -92,9 +92,14 @@ export default function Home() {
     return theme ? { ...theme, challengeId: theme.id, kind: "Tema" as const } : null;
   }, [activeId, daily.data, allThemes]);
 
+  // Disabled queries retain cached results; only expose history for a session.
+  const history = useMemo(
+    () => isAuthenticated ? gameHistory.data ?? [] : [],
+    [isAuthenticated, gameHistory.data],
+  );
   const historyMap = useMemo(
-    () => new Map((gameHistory.data ?? []).map((entry) => [entry.challengeId, entry])),
-    [gameHistory.data],
+    () => new Map(history.map((entry) => [entry.challengeId, entry])),
+    [history],
   );
   const activeRecord = activeId ? historyMap.get(activeId) : undefined;
   const solved = guesses.some((g) => g.rank === 1);
@@ -218,7 +223,7 @@ export default function Home() {
             </div>
           </div>
           <div className="topbar-actions">
-            <div className="streak-chip"><Flame size={15} fill="currentColor" /> <strong>{gameHistory.data?.filter((g) => g.solved).length ?? 0}</strong><span>resolvidos</span></div>
+            <div className="streak-chip"><Flame size={15} fill="currentColor" /> <strong>{history.filter((g) => g.solved).length}</strong><span>resolvidos</span></div>
             <Link href="/amigos" className="friends-top-link">amigos</Link>
             <Link href={isAuthenticated ? "/perfil" : "/cadastro"} className="avatar-button" aria-label={isAuthenticated ? "Abrir perfil" : "Criar cadastro"}>{user?.avatarUrl ? <img src={user.avatarUrl} alt="Seu perfil" /> : user?.name?.slice(0, 2).toUpperCase() ?? "ID"}</Link>
           </div>
@@ -255,7 +260,7 @@ export default function Home() {
                   <span />Hoje
                 </button>
               )}
-              {(gameHistory.data ?? []).slice(0, 7).map((record) => {
+              {history.slice(0, 7).map((record) => {
                 if (daily.data?.challengeId === record.challengeId) return null;
                 const completed = Boolean(record.solved);
                 return (
@@ -309,7 +314,7 @@ export default function Home() {
                   )}
                   <div className="calendar-heading"><CalendarDays size={13} /> histórico de partidas</div>
                   <div className="challenge-list">
-                    {(gameHistory.data ?? []).slice(0, 7).map((record) => {
+                    {history.slice(0, 7).map((record) => {
                       const completed = Boolean(record.solved);
                       return (
                         <div className="challenge-row muted-row" key={record.id}>
@@ -340,8 +345,8 @@ export default function Home() {
             </div>
 
             <div className="rail-footer">
-              <div className="mini-stat"><span>palavras descobertas</span><strong>{gameHistory.data?.filter((g) => g.solved).length ?? 0}</strong></div>
-              <div className="mini-stat"><span>total de tentativas</span><strong>{gameHistory.data?.reduce((acc, g) => acc + g.guesses, 0) ?? 0}</strong></div>
+              <div className="mini-stat"><span>palavras descobertas</span><strong>{history.filter((g) => g.solved).length}</strong></div>
+              <div className="mini-stat"><span>total de tentativas</span><strong>{history.reduce((acc, g) => acc + g.guesses, 0)}</strong></div>
             </div>
           </aside>
 

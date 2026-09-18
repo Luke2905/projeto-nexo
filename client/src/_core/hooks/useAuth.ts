@@ -1,5 +1,6 @@
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { useQueryClient } from "@tanstack/react-query";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
@@ -14,6 +15,7 @@ export function useAuth(options?: UseAuthOptions) {
   // the state cookie, so calling it per render would overwrite the cookie and
   // desync it from an in-flight login's `state`.
   const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
+  const queryClient = useQueryClient();
   const utils = trpc.useUtils();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -22,34 +24,35 @@ export function useAuth(options?: UseAuthOptions) {
     refetchOnWindowFocus: true, // recheck session when user switches back to tab
   });
 
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      utils.auth.me.setData(undefined, null);
-    },
-  });
+  const logoutMutation = trpc.auth.logout.useMutation();
 
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
     } catch (error: unknown) {
-      if (
-        error instanceof TRPCClientError &&
-        error.data?.code === "UNAUTHORIZED"
-      ) {
-        return;
+      // An expired session is already signed out. Other failures must remain
+      // visible so we don't pretend the server cookie has been cleared.
+      if (!(error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED")) {
+        throw error;
       }
-      throw error;
-    } finally {
-      // Clear the Preview auto-login token mirrored into sessionStorage, so
-      // header-based sessions (Safari ITP / WebView) are logged out too. The
-      // backend cookie is cleared by the logout mutation.
-      try {
-        sessionStorage.removeItem("manus-cookie");
-      } catch {}
-      utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+
+    // Remove mirrored credentials as well as all cached account data. Cancel
+    // pending reads first so an old history response cannot restore the cache.
+    try {
+      sessionStorage.removeItem("manus-cookie");
+    } catch {}
+    try {
+      localStorage.removeItem("manus-runtime-user-info");
+    } catch {}
+    await queryClient.cancelQueries();
+    utils.auth.me.setData(undefined, null);
+    queryClient.clear();
+
+    // A full navigation also discards local guesses and mutation callbacks.
+    // Replacing the profile entry avoids returning to it with the Back button.
+    window.location.replace("/");
+  }, [logoutMutation, queryClient, utils]);
 
   const state = useMemo(() => {
     localStorage.setItem(

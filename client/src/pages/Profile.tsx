@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Check, Flame, Gamepad2, ImagePlus, LockKeyhole, LogOut, Medal, Save, Settings2, Sparkles, Target, Trophy, Upload, X, Zap } from "lucide-react";
@@ -13,10 +13,10 @@ const achievementData = [
 
 export default function Profile() {
   const { user, isAuthenticated, logout } = useAuth();
-  const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
   const history = trpc.games.history.useQuery(undefined, { enabled: isAuthenticated, retry: false });
   const updateProfile = trpc.auth.updateProfile.useMutation({ onSuccess: async () => { await utils.auth.me.invalidate(); setSettingsOpen(false); setFeedback("Perfil atualizado."); } });
+  const [signingOut, setSigningOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [photoPreview, setPhotoPreview] = useState(user?.avatarUrl ?? "");
@@ -24,7 +24,7 @@ export default function Profile() {
   const [photoType, setPhotoType] = useState<"image/jpeg" | "image/png" | "image/webp">("image/jpeg");
   const [feedback, setFeedback] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const sessions = history.data ?? [];
+  const sessions = isAuthenticated ? history.data ?? [] : [];
   const solvedSessions = sessions.filter((session) => Boolean(session.solved));
   const displayName = user?.name ?? "Seu perfil";
   const initials = displayName.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase();
@@ -60,8 +60,15 @@ export default function Profile() {
   }
 
   async function signOut() {
-    await logout();
-    setLocation("/");
+    if (signingOut) return;
+    setSigningOut(true);
+    setFeedback("");
+    try {
+      await logout();
+    } catch {
+      setSigningOut(false);
+      setFeedback("Não foi possível sair da conta. Tente novamente.");
+    }
   }
 
   return <main className="profile-shell"><div className="profile-noise" /><div className="profile-wrap">
@@ -73,6 +80,6 @@ export default function Profile() {
       <aside className="profile-side-column"><section className="profile-card achievements-card"><div className="section-heading"><div><span className="section-kicker">coleção</span><h2>Conquistas</h2></div><span className="achievement-count">{unlocked.size}/12</span></div><div className="achievement-list">{achievementData.map(({ icon: Icon, title, text, color }) => { const isUnlocked = unlocked.has(title); return <div className={isUnlocked ? "achievement unlocked" : "achievement locked"} key={title}><div className={`achievement-icon ${color}`}>{isUnlocked ? <Icon size={17} /> : <LockKeyhole size={15} />}</div><div><strong>{title}</strong><small>{text}</small></div></div>; })}</div><button className="all-achievements"><Medal size={14} /> ver todas as conquistas</button></section><section className="profile-card theme-card"><span className="section-kicker">tema favorito</span><div className="theme-highlight"><div className="theme-symbol"><Sparkles size={20} /></div><div><strong>{solvedSessions.length ? "Em descoberta" : "Ainda explorando"}</strong><small>{solvedSessions.length ? `${solvedSessions.length} desafios completados` : "jogue para definir seu tema"}</small></div></div><div className="theme-progress"><span style={{ width: `${Math.min(100, solvedSessions.length * 10)}%` }} /></div><div className="theme-footer"><span>progresso</span><strong>{Math.min(100, solvedSessions.length * 10)}%</strong></div></section><section className="quote-card"><div className="quote-mark">“</div><p>{sessions.length ? "Cada descoberta deixa uma marca no mapa." : "Seu mapa começa vazio. A primeira descoberta é sua."}</p><span>— seu mapa, até aqui</span></section></aside>
     </div><footer className="profile-footer"><span>nexo<span>•</span> beta</span><span>{isAuthenticated ? "seu progresso fica salvo na sua conta" : "crie sua conta para salvar seu progresso"}</span></footer>
   </div>
-  {settingsOpen && <div className="profile-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}><section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title"><button className="modal-close" onClick={() => setSettingsOpen(false)} aria-label="Fechar"><X size={16} /></button><span className="section-kicker">nexo • identidade</span><h2 id="profile-edit-title">Editar perfil</h2><p className="modal-copy">Atualize como você aparece no mapa e no ranking.</p><form onSubmit={saveProfile}><div className="photo-picker"><div className="photo-preview">{photoPreview ? <img src={photoPreview} alt="Prévia da foto" /> : <span>{initials}</span>}</div><div><button type="button" className="photo-button" onClick={() => fileRef.current?.click()}><ImagePlus size={15} /> adicionar foto</button><small>JPG, PNG ou WEBP · até 2 MB</small><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} hidden /></div></div><label className="profile-field">nome de exibição<input value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={80} required /></label>{feedback && <div className="profile-feedback" role="status">{feedback}</div>}<button className="save-profile-button" type="submit" disabled={updateProfile.isPending}><Save size={15} /> {updateProfile.isPending ? "salvando..." : "salvar alterações"}</button></form><div className="modal-divider" /><button className="logout-button" onClick={signOut}><LogOut size={15} /> sair da conta</button></section></div>}
+  {settingsOpen && <div className="profile-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}><section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title"><button className="modal-close" onClick={() => setSettingsOpen(false)} aria-label="Fechar"><X size={16} /></button><span className="section-kicker">nexo • identidade</span><h2 id="profile-edit-title">Editar perfil</h2><p className="modal-copy">Atualize como você aparece no mapa e no ranking.</p><form onSubmit={saveProfile}><div className="photo-picker"><div className="photo-preview">{photoPreview ? <img src={photoPreview} alt="Prévia da foto" /> : <span>{initials}</span>}</div><div><button type="button" className="photo-button" onClick={() => fileRef.current?.click()}><ImagePlus size={15} /> adicionar foto</button><small>JPG, PNG ou WEBP · até 2 MB</small><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} hidden /></div></div><label className="profile-field">nome de exibição<input value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={80} required /></label>{feedback && <div className="profile-feedback" role="status">{feedback}</div>}<button className="save-profile-button" type="submit" disabled={updateProfile.isPending}><Save size={15} /> {updateProfile.isPending ? "salvando..." : "salvar alterações"}</button></form><div className="modal-divider" /><button className="logout-button" onClick={signOut} disabled={signingOut}><LogOut size={15} /> {signingOut ? "saindo..." : "sair da conta"}</button></section></div>}
   </main>;
 }
