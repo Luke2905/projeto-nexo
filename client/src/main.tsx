@@ -52,7 +52,10 @@ const trpcClient = trpc.createClient({
         url: "/api/trpc",
         transformer: superjson,
         fetch(input, init) {
-          return globalThis.fetch(input, { ...init, credentials: "omit" });
+          // Deployment protection needs its cookie even for public API routes.
+          // The server skips account authentication for these batches, so sending
+          // same-origin cookies still does not wake TiDB.
+          return globalThis.fetch(input, { ...init, credentials: "same-origin" });
         },
       }),
       false: httpBatchLink({

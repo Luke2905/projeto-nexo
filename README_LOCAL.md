@@ -292,6 +292,14 @@ separados e o contexto do servidor não autentica esses lotes, mesmo com cookies
 Isso evita que o carregamento de desafios aguarde o banco sair de inatividade.
 Lotes mistos e rotas protegidas continuam exigindo a autenticação normal.
 
+As consultas públicas enviam cookies com `credentials: "same-origin"`. Isso é
+necessário para a proteção de acesso dos deploys da Vercel, que valida seu próprio
+cookie antes de encaminhar a requisição à aplicação. Usar `omit` remove também
+esse cookie e pode causar um redirecionamento 307 para `vercel.com/sso-api`, seguido
+de erro de CORS. O isolamento do TiDB é feito no contexto do servidor, não pela
+remoção dos cookies. Após publicar uma correção, abra o deploy mais recente ou o
+domínio de produção; a URL específica de um deploy antigo mantém o código antigo.
+
 O salvamento do progresso mantém a política de inicialização existente: até
 duas tentativas de conexão de 20 segundos, consultas de prontidão de 5 segundos
 e intervalo de 1,5 segundo, aproximadamente 51,5 segundos dentro do limite de
