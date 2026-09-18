@@ -47,7 +47,20 @@ try {
   }, 500);
   assert.equal(unavailable[0].error.json.data.code, "INTERNAL_SERVER_ERROR");
   assert.match(unavailable[0].error.json.message, /configura/);
-  console.log("Production smoke check passed: native ESM entrypoint, JSON API responses, configuration guard, no Manus injection.");
+  for (const [word, status] of [["agua", 200], ["céu", 200], ["correndo", 200], ["xqztrp", 400]]) {
+    const guess = await request("/api/trpc/challenges.submitGuess?batch=1", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ 0: { json: { challengeId: "daily-2024-01-01", word } } }),
+    }, status);
+    if (status === 400) {
+      assert.equal(guess[0].error.json.data.code, "BAD_REQUEST");
+      assert.match(guess[0].error.json.message, /Palavra não reconhecida/);
+    } else {
+      assert.equal(guess[0].result.data.json.word, word);
+    }
+  }
+  console.log("Production smoke check passed: offline Portuguese lexicon, native ESM entrypoint, JSON API responses, configuration guard, no Manus injection.");
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

@@ -226,7 +226,7 @@ export const WORD_CATALOG: WordEntry[] = [
     word: "caverna",
     prompt: "Um lugar escuro que guarda segredos antigos.",
     category: "aventura",
-    aliases: { gruta: 16, escuridão: 14, pedra: 12, eco: 10, stalactite: 6, profundeza: 5, caverna: 1 },
+    aliases: { gruta: 16, escuridão: 14, pedra: 12, eco: 10, estalactite: 6, profundeza: 5, caverna: 1 },
   },
   {
     word: "cinema",

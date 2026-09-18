@@ -227,3 +227,30 @@ não inclui o parâmetro SSL. Uma CA personalizada no objeto JSON `ssl` da URL
 Conexões MySQL de outros provedores mantêm suas opções originais na URL.
 
 Referência: https://docs.pingcap.com/tidbcloud/connect-to-tidb-cluster-serverless/
+
+### Validação de palavras em português brasileiro
+
+Os palpites são verificados no servidor antes do cálculo de proximidade. Uma
+palavra ausente do vocabulário retorna BAD_REQUEST com uma mensagem em português;
+o formulário preserva o texto e não adiciona tentativa nem salva progresso.
+Acentos e maiúsculas não diferenciam palavras: água/agua e céu/ceu são aceitos
+como a mesma entrada, inclusive na prevenção de palpites repetidos.
+
+A base é o VERO do LibreOffice, distribuído por dictionary-pt 4.0.0. O nspell
+2.1.5 expande as regras de flexão durante o build, em lotes para limitar memória.
+A lista gerada contém apenas palavras simples, normalizadas e comprimidas;
+fica embutida no servidor, nunca no JavaScript do navegador. A função carrega
+o vocabulário na primeira consulta e o reutiliza em memória. Não há chamadas
+a APIs de dicionários nem consultas ao TiDB para validar palavras.
+
+npm run build:lexicon gera server/game/generated/pt-br.ts (ignorado pelo Git).
+Os comandos dev, check, test, build e build:api geram o arquivo automaticamente;
+execuções seguintes usam o cache quando a fonte e o gerador não mudaram.
+As dependências de geração devem estar instaladas no ambiente de build.
+
+Para vocabulário específico dos temas, adicione apenas termos revisados em
+EXTRA_WORDS, em server/game/lexicon.ts. Não autorize automaticamente todos os
+aliases: eles também podem conter erros de escrita. A base pode conter palavras
+raras ou nomes próprios e pode não cobrir neologismos. A validação ortográfica
+não modifica o algoritmo de proximidade. Créditos e licença: licenses/dictionary-pt.txt
+(original do pacote) e THIRD_PARTY_NOTICES.md.

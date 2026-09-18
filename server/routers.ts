@@ -176,6 +176,11 @@ export const appRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado." });
         }
 
+        const { isRecognizedWord } = await import("./game/lexicon");
+        if (!isRecognizedWord(input.word)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Palavra não reconhecida. Confira a escrita e tente novamente." });
+        }
+
         const result = evaluateGuess(input.word, entry);
         return {
           word: input.word.trim(),

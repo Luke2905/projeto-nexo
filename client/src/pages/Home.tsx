@@ -1,3 +1,4 @@
+import { normalizeWord } from "@shared/words";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useState } from "react";
@@ -136,8 +137,8 @@ export default function Home() {
   async function submitGuess(event?: React.FormEvent) {
     event?.preventDefault();
     const word = input.trim();
-    if (!word || !activeId) return;
-    if (guesses.some((g) => g.word.toLowerCase() === word.toLowerCase())) {
+    if (!word || !activeId || solved || lost || submitGuessMutation.isPending) return;
+    if (guesses.some((g) => normalizeWord(g.word) === normalizeWord(word))) {
       setNotice("Essa palavra já está no seu mapa de pistas.");
       return;
     }

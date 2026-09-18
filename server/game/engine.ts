@@ -4,6 +4,7 @@
  * All answer secrets are processed exclusively here — never sent to the client.
  */
 
+import { normalizeWord as normalize } from "../../shared/words";
 import { CATEGORY_HINTS, WORD_CATALOG, THEME_CATALOG, type WordEntry } from "./dictionary";
 
 /** The reference epoch date. Day 0 = index 0 of WORD_CATALOG. Do not change this. */
@@ -15,13 +16,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
  * Normalizes a string for consistent comparison:
  * trims whitespace, lowercases (pt-BR), strips diacritics.
  */
-export function normalize(value: string): string {
-  return value
-    .trim()
-    .toLocaleLowerCase("pt-BR")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
+export { normalizeWord as normalize } from "../../shared/words";
 
 /**
  * Validates that the input is a single word (letters only after normalization).
