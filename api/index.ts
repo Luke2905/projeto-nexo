@@ -22,4 +22,16 @@ app.use(
   })
 );
 
-export default app;
+// Fallback for any other API route
+app.use((req, res) => {
+  res.status(404).json({ error: "API Route Not Found" });
+});
+
+export default function (req: any, res: any) {
+  try {
+    return app(req, res);
+  } catch (error: any) {
+    console.error("Vercel API Wrapper Error:", error);
+    res.status(500).json({ error: "Internal Server Error", details: error?.message });
+  }
+}
