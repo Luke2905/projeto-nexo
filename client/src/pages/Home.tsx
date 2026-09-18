@@ -10,6 +10,7 @@ import {
   Flame,
   History,
   Lightbulb,
+  LoaderCircle,
   RotateCcw,
   Search,
   Sparkles,
@@ -17,6 +18,8 @@ import {
   Trophy,
 } from "lucide-react";
 import { Link } from "wouter";
+import AppearanceSwitcher from "@/components/AppearanceSwitcher";
+import { useVisualTheme } from "@/contexts/VisualThemeContext";
 
 type Mode = "daily" | "themes";
 
@@ -39,6 +42,7 @@ function accentClass(accent: string) {
 }
 
 export default function Home() {
+  const { visualTheme } = useVisualTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
 
@@ -75,6 +79,19 @@ export default function Home() {
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [notice, setNotice] = useState("");
   const [hintLoading, setHintLoading] = useState(false);
+  const [latestWord, setLatestWord] = useState<string | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const timeout = window.setTimeout(() => setCelebrating(false), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [celebrating]);
+
+  useEffect(() => {
+    setLatestWord(null);
+    setCelebrating(false);
+  }, [activeId]);
 
   // Set activeId to today's daily once it loads
   useEffect(() => {
@@ -152,6 +169,8 @@ export default function Home() {
       const result = await submitGuessMutation.mutateAsync({ challengeId: activeId, word });
       const nextGuesses = [result, ...guesses];
       setGuesses(nextGuesses);
+      setLatestWord(result.word);
+      setCelebrating(result.solved);
       setInput("");
       setNotice(result.solved ? "Você encontrou a palavra secreta." : "Pista registrada. Continue aproximando.");
 
@@ -193,6 +212,8 @@ export default function Home() {
   }
 
   function resetGame() {
+    setLatestWord(null);
+    setCelebrating(false);
     setGuesses([]);
     setInput("");
     setNotice("Novo mapa aberto. Boa investigação.");
@@ -223,6 +244,7 @@ export default function Home() {
             </div>
           </div>
           <div className="topbar-actions">
+            <AppearanceSwitcher />
             <div className="streak-chip"><Flame size={15} fill="currentColor" /> <strong>{history.filter((g) => g.solved).length}</strong><span>resolvidos</span></div>
             <Link href="/amigos" className="friends-top-link">amigos</Link>
             <Link href={isAuthenticated ? "/perfil" : "/cadastro"} className="avatar-button" aria-label={isAuthenticated ? "Abrir perfil" : "Criar cadastro"}>{user?.avatarUrl ? <img src={user.avatarUrl} alt="Seu perfil" /> : user?.name?.slice(0, 2).toUpperCase() ?? "ID"}</Link>
@@ -361,18 +383,21 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="game-card">
+            <div className={`game-card${celebrating ? " is-celebrating" : ""}`}>
+              {celebrating && visualTheme === "cartoon" && <div className="cartoon-confetti" aria-hidden="true">
+                {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ "--piece": index } as React.CSSProperties} />)}
+              </div>}
               <div className="game-card-head">
                 <div>
-                  <p className="card-kicker">encontre a palavra</p>
+                  <p className="card-kicker">{visualTheme === "cartoon" && <Target size={13} />}encontre a palavra</p>
                   <h1>{activeChallenge?.kind === "Diário" ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
                 </div>
-                <div className="attempt-badge"><span>tentativas</span><strong>{guesses.length.toString().padStart(2, "0")}</strong></div>
+                <div className="attempt-badge"><span>tentativas</span><strong key={guesses.length}>{guesses.length.toString().padStart(2, "0")}</strong></div>
               </div>
 
 
 
-              <form className="guess-form" onSubmit={submitGuess}>
+              <form className="guess-form" onSubmit={submitGuess} aria-busy={submitGuessMutation.isPending}>
                 <Search size={19} className="search-icon" />
                 <input
                   value={input}
@@ -382,18 +407,18 @@ export default function Home() {
                   autoComplete="off"
                   disabled={solved || lost || submitGuessMutation.isPending}
                 />
-                <button type="submit" aria-label="Enviar palpite" disabled={submitGuessMutation.isPending}>
-                  <ArrowRight size={19} />
+                <button type="submit" aria-label={submitGuessMutation.isPending ? "Enviando palpite" : "Enviar palpite"} disabled={solved || lost || submitGuessMutation.isPending}>
+                  {submitGuessMutation.isPending ? <LoaderCircle size={19} className="guess-loader" /> : <ArrowRight size={19} />}
                 </button>
               </form>
               <div className="form-hint"><span>enter</span> para enviar <i /> <span>ex.</span> história, objeto, lugar...</div>
-              {notice && <div className={solved ? "notice success" : "notice"} role="status" aria-live="polite">{solved ? <Check size={14} /> : <Lightbulb size={14} />}{notice}</div>}
+              {notice && <div key={notice} className={solved ? "notice success" : "notice"} role="status" aria-live="polite">{solved ? <Check size={14} /> : <Lightbulb size={14} />}{notice}</div>}
 
               <div className="result-area">
                 {solved ? (
                   <div className="solved-panel">
                     <div className="solved-icon"><Trophy size={25} /></div>
-                    <div><span>palavra encontrada em {guesses.length} tentativas</span></div>
+                    <div>{visualTheme === "cartoon" && <strong>É isso. Nexo feito!</strong>}<span>palavra encontrada em {activeRecord?.solved ? activeRecord.guesses : guesses.length} tentativas</span></div>
                     <button onClick={resetGame} className="text-button">jogar de novo <RotateCcw size={14} /></button>
                   </div>
                 ) : lost ? (
@@ -413,8 +438,8 @@ export default function Home() {
                     <div className="result-header"><span>suas palavras</span><span className="result-sort">mais próximas primeiro <ChevronRight size={13} /></span></div>
                     {orderedGuesses.length > 0 ? (
                       <div className="guess-list">
-                        {orderedGuesses.map((guess, index) => (
-                          <div className="guess-item" key={`${guess.word}-${index}`}>
+                        {orderedGuesses.map((guess) => (
+                          <div className={`guess-item${guess.word === latestWord ? " is-latest" : ""}`} key={guess.word}>
                             <div className="guess-rank">{guess.rank.toString().padStart(2, "0")}</div>
                             <div className="guess-word"><strong>{guess.word}</strong><small>{guess.tag}</small></div>
                             <div className="heat-track"><span className={`heat-fill ${colorForRank(guess.rank)}`} style={{ width: `${guess.proximity}%` }} /></div>
@@ -423,7 +448,24 @@ export default function Home() {
                         ))}
                       </div>
                     ) : (
-                      <div className="empty-state"><div className="empty-ring"><Target size={20} /></div><p>Seu mapa está em branco.<br /><strong>A primeira pista é sua.</strong></p></div>
+                      <div className="empty-state">
+                        {visualTheme === "cartoon" ? <div className="map-mascot" aria-hidden="true">
+                          <svg viewBox="0 0 88 88" fill="none">
+                            <path d="m14 27 20-7 22 8 20-7-5 47-20 8-23-9-19 8Z" fill="#142b37" stroke="#6bbfb9" strokeWidth="2" strokeLinejoin="round" />
+                            <path d="m34 20-6 47-19 8 5-48Z" fill="#342039" stroke="#aa648f" strokeWidth="1.5" strokeLinejoin="round" />
+                            <path d="m56 28 20-7-5 47-20 8Z" fill="#15333d" stroke="#6bbfb9" strokeWidth="1.5" strokeLinejoin="round" />
+                            <path d="m17 60 8-8m30 10 8-9" stroke="#a5e7dd" strokeWidth="2" strokeDasharray="3 4" strokeLinecap="round" />
+                            <path d="m31 36 23 3-2 12-22-3Z" fill="#0a1420" stroke="#7ccdc4" strokeWidth="2" strokeLinejoin="round" />
+                            <path d="m36 41-.5 3m11-2-.5 3" stroke="#c1f0e5" strokeWidth="2.5" strokeLinecap="round" />
+                            <path d="m36 54 5 3 5-2" stroke="#d59cbd" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="62" cy="37" r="6" fill="#281b34" stroke="#e582b4" strokeWidth="2" />
+                            <circle cx="62" cy="37" r="2" fill="#efb4d1" />
+                            <path d="M18 33v8m-4-4h8" stroke="#c38ba9" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M43 11h9m-5-4v9" stroke="#69c9c0" strokeWidth="1.5" strokeLinecap="round" opacity=".6" />
+                          </svg>
+                        </div> : <div className="empty-ring" aria-hidden="true"><Target size={20} /></div>}
+                        <p>Seu mapa está em branco.<br /><strong>A primeira pista é sua.</strong></p>
+                      </div>
                     )}
                   </>
                 )}
@@ -447,7 +489,7 @@ export default function Home() {
               <div className="orbit-glow" />
               <div className="orbit-content">
                 <span>proximidade</span>
-                <strong>{bestGuess ? `${bestGuess.proximity}%` : "—"}</strong>
+                <strong key={bestGuess?.proximity ?? "empty"}>{bestGuess ? `${bestGuess.proximity}%` : "—"}</strong>
                 <small>{bestGuess ? (bestGuess.rank === 1 ? "encontrou!" : "melhor pista") : "aguardando sua primeira palavra"}</small>
               </div>
             </div>

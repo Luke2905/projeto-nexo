@@ -7,6 +7,7 @@ import Register from "@/pages/Register";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { VisualThemeProvider } from "./contexts/VisualThemeContext";
 import Home from "./pages/Home";
 
 function Router() {
@@ -36,10 +37,12 @@ function App() {
         defaultTheme="light"
         // switchable
       >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <VisualThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </VisualThemeProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

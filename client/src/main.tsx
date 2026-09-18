@@ -7,6 +7,12 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
+import "./cartoon.css";
+import "./appearance.css";
+import { applyVisualTheme, readVisualTheme } from "./lib/visualTheme";
+
+// Restore the selected appearance before React's first render.
+applyVisualTheme(readVisualTheme());
 
 const queryClient = new QueryClient();
 

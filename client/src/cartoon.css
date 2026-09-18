@@ -1,0 +1,265 @@
+/* Gamer + illustrated accents, balanced by clean ink-blue surfaces. */
+:root[data-visual-theme="cartoon"] {
+  --cartoon-ink: #060d19;
+  --cartoon-outline: #46516b;
+  --cartoon-spring: cubic-bezier(.22, 1.15, .4, 1);
+  --nexo-cyan: #7dded1;
+  --nexo-pink: #da89b5;
+  --nexo-text: #e8edf5;
+  --nexo-muted: #95a4b9;
+}
+
+:where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) {
+  background: #0a101d;
+  color: var(--nexo-text);
+}
+:where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell)::before {
+  background: radial-gradient(ellipse at 18% 0%, #97365f26, transparent 52%), radial-gradient(ellipse at 95% 78%, #23665f20, transparent 48%), linear-gradient(125deg, #11132188, #0a142188);
+  opacity: 1;
+  filter: none;
+}
+:where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell)::after {
+  background-image: linear-gradient(#aab0d508 1px, transparent 1px), linear-gradient(90deg, #aab0d508 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: .45;
+  mask-image: linear-gradient(to bottom, #000, transparent 85%);
+}
+:where([data-visual-theme="cartoon"]) .ambient-orb, :where([data-visual-theme="cartoon"]) .profile-noise, :where([data-visual-theme="cartoon"]) .register-aurora { display: none; }
+:where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) button:not(:disabled) { cursor: pointer; }
+:where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) :is(button, a, input):focus-visible { outline-color: var(--nexo-cyan); }
+
+/* Keep the original composition and typography; use color to establish hierarchy. */
+:where([data-visual-theme="cartoon"]) .topbar, :where([data-visual-theme="cartoon"]) .profile-header, :where([data-visual-theme="cartoon"]) .friends-header, :where([data-visual-theme="cartoon"]) .register-header { border-bottom-color: #b1aec41c; }
+:where([data-visual-theme="cartoon"]) .nexo-mark {
+  border: 1px solid #77bdbd;
+  border-radius: 9px 3px 9px 9px;
+  background: linear-gradient(135deg, #35223b, #142f39);
+  color: #e0f8f1;
+  transform: rotate(-3deg);
+  filter: none;
+  box-shadow: -2px 2px 0 #ae51863d, 2px -1px 0 #68d3c32e;
+}
+:where([data-visual-theme="cartoon"]) .nexo-mark i { background: var(--nexo-pink); box-shadow: 0 0 9px #da89b544; }
+:where([data-visual-theme="cartoon"]) .brand-name span, :where([data-visual-theme="cartoon"]) .friends-brand span, :where([data-visual-theme="cartoon"]) .register-brand span { color: var(--nexo-cyan); }
+:where([data-visual-theme="cartoon"]) .brand-subtitle, :where([data-visual-theme="cartoon"]) .streak-chip, :where([data-visual-theme="cartoon"]) .friends-top-link { color: #9aa8be; }
+:where([data-visual-theme="cartoon"]) .streak-chip svg { color: var(--nexo-pink); }
+:where([data-visual-theme="cartoon"]) .avatar-button, :where([data-visual-theme="cartoon"]) .friends-avatar { border-color: #75969e4d; background: #16303a66; color: #b4e8e0; box-shadow: none; }
+:where([data-visual-theme="cartoon"]) .rail-heading, :where([data-visual-theme="cartoon"]) .rail-section-label, :where([data-visual-theme="cartoon"]) .calendar-heading { color: #8e9ab0; }
+:where([data-visual-theme="cartoon"]) .mode-button { border-radius: 10px 4px 10px 10px; }
+:where([data-visual-theme="cartoon"]) .mode-button.active {
+  border-color: #b579a047;
+  background: linear-gradient(105deg, #a756821f, #23344329);
+  box-shadow: inset 2px 0 0 var(--nexo-pink), 2px 3px 0 #060d1977;
+}
+:where([data-visual-theme="cartoon"]) .mode-button svg { color: var(--nexo-pink); }
+:where([data-visual-theme="cartoon"]) .mode-button:nth-child(2) svg { color: var(--nexo-cyan); }
+:where([data-visual-theme="cartoon"]) .mode-button small, :where([data-visual-theme="cartoon"]) .challenge-copy small { color: #8b9aaf; }
+:where([data-visual-theme="cartoon"]) .challenge-row.selected { border-color: #a57b9b33; background: #a7568212; box-shadow: none; }
+:where([data-visual-theme="cartoon"]) .challenge-icon { border-radius: 8px; box-shadow: 2px 2px 0 #060d1988; }
+:where([data-visual-theme="cartoon"]) .challenge-icon.coral, :where([data-visual-theme="cartoon"]) .challenge-icon.done, :where([data-visual-theme="cartoon"]) .row-check { color: #d391b7; }
+:where([data-visual-theme="cartoon"]) .live-dot, :where([data-visual-theme="cartoon"]) .eyebrow-dot { background: var(--nexo-pink); box-shadow: 0 0 0 3px #da89b510; }
+:where([data-visual-theme="cartoon"]) .eyebrow-pill { color: #dba4c4; padding: 5px 8px; border: 1px solid #b579a038; border-radius: 6px 3px 6px 6px; background: #a7568210; }
+:where([data-visual-theme="cartoon"]) .date-label { color: #8e9aaf; }
+
+:where([data-visual-theme="cartoon"]) .game-card, :where([data-visual-theme="cartoon"]) .profile-card, :where([data-visual-theme="cartoon"]) .ranking-card, :where([data-visual-theme="cartoon"]) .register-card, :where([data-visual-theme="cartoon"]) .quote-card {
+  border: 2px solid var(--cartoon-outline);
+  border-radius: 16px 5px 16px 16px;
+  background: linear-gradient(145deg, #182033f7, #0e1b2af7);
+  box-shadow: 4px 5px 0 var(--cartoon-ink), 0 20px 55px #0003, inset 0 1px 0 #ffffff05;
+}
+:where([data-visual-theme="cartoon"]) .game-card { padding: 32px 35px 24px; }
+:where([data-visual-theme="cartoon"]) .game-card::before {
+  height: 3px;
+  background: linear-gradient(90deg, #b873a4, #956eaa 42%, #66c7be);
+  opacity: .8;
+  box-shadow: none;
+}
+:where([data-visual-theme="cartoon"]) .game-card-head { position: relative; z-index: 1; gap: 20px; }
+:where([data-visual-theme="cartoon"]) .game-card h1 { color: #e8edf5; font-weight: 600; text-shadow: 1px 2px 0 #080d1c; }
+:where([data-visual-theme="cartoon"]) .card-kicker { display: flex; align-items: center; gap: 6px; color: var(--nexo-pink); font-size: 9px; letter-spacing: .16em; }
+:where([data-visual-theme="cartoon"]) .attempt-badge {
+  align-self: flex-start;
+  min-width: 64px;
+  padding: 9px 8px 7px;
+  border: 1px solid #ba87ac80;
+  border-radius: 9px 3px 9px 9px;
+  background: #54314c33;
+  text-align: center;
+  transform: rotate(3deg);
+  box-shadow: 2px 3px 0 var(--cartoon-ink);
+}
+:where([data-visual-theme="cartoon"]) .attempt-badge span { color: #aa92ad; font-size: 7px; }
+:where([data-visual-theme="cartoon"]) .attempt-badge strong { color: #dfb6d1; font-size: 27px; }
+:where([data-visual-theme="cartoon"]) .guess-form { height: 56px; border: 1px solid #42636f; border-radius: 10px; background: #0a1523; box-shadow: inset 0 1px 5px #0002; }
+:where([data-visual-theme="cartoon"]) .guess-form:focus-within { border-color: #7dded1; box-shadow: 0 0 0 3px #7dded10d; }
+:where([data-visual-theme="cartoon"]) .search-icon { color: var(--nexo-cyan); }
+:where([data-visual-theme="cartoon"]) .guess-form input { min-width: 0; color: var(--nexo-text); font-size: 13px; }
+:where([data-visual-theme="cartoon"]) .guess-form input::placeholder { color: #8b9ab0; }
+:where([data-visual-theme="cartoon"]) .guess-form button {
+  flex-shrink: 0;
+  border: 2px solid #a4e5db;
+  border-radius: 7px 3px 7px 7px;
+  background: #82d2c5;
+  color: #112b32;
+  box-shadow: 2px 3px 0 var(--cartoon-ink), -1px 1px 0 #b1649255;
+}
+:where([data-visual-theme="cartoon"]) .guess-form button:hover { background: #a0e2d7; }
+:where([data-visual-theme="cartoon"]) .guess-form button:disabled { opacity: .5; cursor: not-allowed; }
+:where([data-visual-theme="cartoon"]) .guess-form[aria-busy="true"] button { cursor: wait; }
+:where([data-visual-theme="cartoon"]) .guess-form button:disabled:hover { transform: none; box-shadow: none; }
+:where([data-visual-theme="cartoon"]) .form-hint { color: #8191a8; }
+:where([data-visual-theme="cartoon"]) .form-hint span { color: #9ba9bd; border-color: #7c829336; }
+:where([data-visual-theme="cartoon"]) .notice { position: relative; border: 1px solid #67939438; border-radius: 10px 10px 10px 3px; padding: 10px 12px; background: #27455330; color: #aec9d3; line-height: 1.5; box-shadow: 2px 2px 0 #060d1966; }
+:where([data-visual-theme="cartoon"]) .notice svg { flex-shrink: 0; }
+:where([data-visual-theme="cartoon"]) .notice.success { border-color: #76bcaa44; background: #294d4433; color: #b0dfce; }
+:where([data-visual-theme="cartoon"]) .result-area { border-color: #9296b01c; }
+:where([data-visual-theme="cartoon"]) .result-header { color: #9aa7bb; }
+:where([data-visual-theme="cartoon"]) .result-sort { color: #8795ac; }
+:where([data-visual-theme="cartoon"]) .guess-item { min-height: 39px; border-radius: 8px; padding: 5px; border: 1px solid transparent; }
+:where([data-visual-theme="cartoon"]) .guess-item.is-latest { border-color: #6eb5ad40; background: #66c7be08; }
+:where([data-visual-theme="cartoon"]) .guess-rank { border: 1px solid #a483b14d; border-radius: 5px; background: #73548526; color: #c6afd5; box-shadow: 1px 2px 0 #060d1988; }
+:where([data-visual-theme="cartoon"]) .guess-word strong { color: #dce7ef; }
+:where([data-visual-theme="cartoon"]) .guess-word small { color: #8e9eb5; }
+:where([data-visual-theme="cartoon"]) .guess-score { color: #a0d5ce; }
+:where([data-visual-theme="cartoon"]) .heat-track { height: 7px; border: 1px solid #6c97962b; background: #86aaa014; }
+:where([data-visual-theme="cartoon"]) .heat-fill { transform-origin: left; }
+:where([data-visual-theme="cartoon"]) .heat-fill.hot { background: linear-gradient(90deg, #b882b2, #dc93b9); box-shadow: none; }
+:where([data-visual-theme="cartoon"]) .heat-fill.warm { background: #be95b8; }:where([data-visual-theme="cartoon"]) .heat-fill.near { background: #a0a4bd; }:where([data-visual-theme="cartoon"]) .heat-fill.cool { background: #75bdb4; }
+:where([data-visual-theme="cartoon"]) .empty-state { gap: 15px; min-height: 172px; }
+:where([data-visual-theme="cartoon"]) .map-mascot { flex: 0 0 76px; width: 76px; height: 76px; filter: drop-shadow(-2px 3px 0 #090b18); }
+:where([data-visual-theme="cartoon"]) .map-mascot svg { width: 100%; height: 100%; overflow: visible; }
+:where([data-visual-theme="cartoon"]) .empty-state p { font-size: 11px; color: #8d9eba; }
+:where([data-visual-theme="cartoon"]) .empty-state strong { color: #becde4; }
+:where([data-visual-theme="cartoon"]) .solved-panel { position: relative; flex-wrap: wrap; }
+:where([data-visual-theme="cartoon"]) .solved-icon { flex-shrink: 0; border: 2px solid #7abab1; border-radius: 12px 4px 12px 12px; background: linear-gradient(135deg, #47304a, #20414a); color: #b2e4d8; transform: rotate(-3deg); box-shadow: 2px 3px 0 var(--cartoon-ink); }
+:where([data-visual-theme="cartoon"]) .solved-panel strong { margin-bottom: 5px; font-size: clamp(17px, 2vw, 23px); }
+:where([data-visual-theme="cartoon"]) .solved-panel .text-button { padding: 9px 0; }
+:where([data-visual-theme="cartoon"]) .text-button, :where([data-visual-theme="cartoon"]) .card-footer button { color: #a5c8cc; }
+:where([data-visual-theme="cartoon"]) .card-footer { color: #8a9bb8; }
+:where([data-visual-theme="cartoon"]) .card-footer button { min-height: 28px; }
+:where([data-visual-theme="cartoon"]) .legend-dot.hot { background: var(--nexo-pink); }
+:where([data-visual-theme="cartoon"]) .tip-card { border-color: #b578a34d; border-radius: 10px 10px 10px 3px; background: #8b527714; box-shadow: 2px 3px 0 #060d1955; }
+:where([data-visual-theme="cartoon"]) .tip-card svg { color: var(--nexo-pink); }
+:where([data-visual-theme="cartoon"]) .tip-card p { color: #bcc3d2; }
+:where([data-visual-theme="cartoon"]) .insight-block p { color: #9caac0; }
+:where([data-visual-theme="cartoon"]) .insight-number { border-color: #6da49e55; color: #a1d9d1; }
+:where([data-visual-theme="cartoon"]) .progress-orbit { border-color: #58988f47; box-shadow: 0 0 32px #357b7112; }
+:where([data-visual-theme="cartoon"]) .progress-orbit::before { border-color: #bb6a9959; }
+:where([data-visual-theme="cartoon"]) .progress-orbit::after { border-color: #73bab440; }
+:where([data-visual-theme="cartoon"]) .orbit-glow { background: #427e7912; box-shadow: 0 0 35px #457e781c; }
+:where([data-visual-theme="cartoon"]) .orbit-content small { color: #c499b8; }
+:where([data-visual-theme="cartoon"]) .live-label i { background: #8ac8b8; box-shadow: 0 0 0 3px #8ac8b814; }
+:where([data-visual-theme="cartoon"]) .stage-bottom-note { color: #8d9ab2; }
+:where([data-visual-theme="cartoon"]) .small-spark { color: #c28fae; }
+:where([data-visual-theme="cartoon"]) .score-line .mode-value { color: #cba0c0; }
+
+/* The same quiet color accents on account and social pages. */
+:where([data-visual-theme="cartoon"]) .profile-stat, :where([data-visual-theme="cartoon"]) .profile-level, :where([data-visual-theme="cartoon"]) .friend-invite { border-color: #354258; background: #18233699; box-shadow: none; }
+:where([data-visual-theme="cartoon"]) .profile-avatar { background: linear-gradient(145deg, #37233d, #173b40); border-color: #719e9e70; box-shadow: 0 0 22px #58b4a914; }
+:where([data-visual-theme="cartoon"]) .profile-avatar::before { border-color: #bb7ba653; }
+:where([data-visual-theme="cartoon"]) .profile-eyebrow, :where([data-visual-theme="cartoon"]) .section-kicker, :where([data-visual-theme="cartoon"]) .friends-eyebrow, :where([data-visual-theme="cartoon"]) .register-kicker { color: var(--nexo-pink); }
+:where([data-visual-theme="cartoon"]) .profile-intro p, :where([data-visual-theme="cartoon"]) .register-copy > p, :where([data-visual-theme="cartoon"]) .friends-hero p { color: #a0acc0; }
+:where([data-visual-theme="cartoon"]) .friends-hero h1 em, :where([data-visual-theme="cartoon"]) .register-copy h1 em { color: #99d7ce; }
+:where([data-visual-theme="cartoon"]) .profile-stat span, :where([data-visual-theme="cartoon"]) .profile-stat small, :where([data-visual-theme="cartoon"]) .month-label, :where([data-visual-theme="cartoon"]) .achievement-count, :where([data-visual-theme="cartoon"]) .activity-copy small, :where([data-visual-theme="cartoon"]) .achievement small, :where([data-visual-theme="cartoon"]) .quote-card span, :where([data-visual-theme="cartoon"]) .theme-highlight small { color: #91a0b7; }
+:where([data-visual-theme="cartoon"]) .achievement-icon.coral, :where([data-visual-theme="cartoon"]) .ranking-avatar.pink { color: #d99bbc; background: #ad628d1a; }
+:where([data-visual-theme="cartoon"]) .achievement-icon.blue, :where([data-visual-theme="cartoon"]) .ranking-avatar.blue { color: #96d8cf; background: #5db7aa1a; }
+:where([data-visual-theme="cartoon"]) .achievement-icon.gold { color: #cfb997; background: #ac93741a; }
+:where([data-visual-theme="cartoon"]) .register-symbol { border-color: #85b1b366; background: #6ebbb510; color: #a3dcd5; box-shadow: -2px 2px 0 #ae518625; }
+:where([data-visual-theme="cartoon"]) .register-benefit > div { border-color: #69bcb549; background: #59bdb410; color: #9adbd1; }
+:where([data-visual-theme="cartoon"]) .register-benefit:nth-child(2) > div { border-color: #bd7ba04f; background: #9d5d8512; color: #d79fbe; }
+:where([data-visual-theme="cartoon"]) .register-benefit:nth-child(3) > div { border-color: #9b8abb4f; background: #78699b12; color: #b4a5cc; }
+:where([data-visual-theme="cartoon"]) .register-card-top, :where([data-visual-theme="cartoon"]) .register-card-desc, :where([data-visual-theme="cartoon"]) .register-benefit small, :where([data-visual-theme="cartoon"]) .register-secondary, :where([data-visual-theme="cartoon"]) .register-trust { color: #95a4bb; }
+:where([data-visual-theme="cartoon"]) .register-card h2 { color: #e8edf5; font-size: 24px; font-weight: 600; }
+:where([data-visual-theme="cartoon"]) .auth-tabs { border-color: #7283972b; background: #0a142366; }
+:where([data-visual-theme="cartoon"]) .auth-tab { color: #9ca9bf; font-size: 10px; }
+:where([data-visual-theme="cartoon"]) .auth-tab.active { background: #4d8f8521; color: #b1e1d9; }
+:where([data-visual-theme="cartoon"]) .auth-form { gap: 15px; }
+:where([data-visual-theme="cartoon"]) .auth-form label { color: #a9b4c7; font-size: 10px; }
+:where([data-visual-theme="cartoon"]) .auth-form input { min-height: 42px; border-color: #76869840; background: #0b1625b3; color: #e8edf5; font-size: 12px; }
+:where([data-visual-theme="cartoon"]) .auth-form input::placeholder { color: #8191aa; }
+:where([data-visual-theme="cartoon"]) .auth-form input:focus { border-color: #7ac5bb; box-shadow: 0 0 0 3px #6dbdaf0d; }
+:where([data-visual-theme="cartoon"]) .register-divider { border-color: #7c82932b; }
+:where([data-visual-theme="cartoon"]) .register-divider span { background: #142030; color: #90a0b7; }
+:where([data-visual-theme="cartoon"]) .oauth-button, :where([data-visual-theme="cartoon"]) .register-primary, :where([data-visual-theme="cartoon"]) .save-profile-button, :where([data-visual-theme="cartoon"]) .signup-banner button {
+  border: 1px solid #a4ded3;
+  border-radius: 8px 3px 8px 8px;
+  background: #8ad3c6;
+  color: #102b30;
+  font-size: 11px;
+  box-shadow: 2px 3px 0 var(--cartoon-ink), -1px 1px 0 #9d527f33;
+}
+:where([data-visual-theme="cartoon"]) .oauth-button:hover, :where([data-visual-theme="cartoon"]) .register-primary:hover { background: #a0e2d7; }
+:where([data-visual-theme="cartoon"]) .social-tab.active { border-color: #7fbcb140; background: #579d9514; color: #afe1d8; }
+:where([data-visual-theme="cartoon"]) .friend-search { border-color: #65858740; background: #10233066; }
+:where([data-visual-theme="cartoon"]) .friend-search input { color: #dce7ef; }:where([data-visual-theme="cartoon"]) .friend-search input::placeholder { color: #8a9bb2; }
+:where([data-visual-theme="cartoon"]) .radar-ping { border-color: #78bdb3; background: #518e8412; color: #98d7cc; box-shadow: 0 0 24px #569d931a; }
+:where([data-visual-theme="cartoon"]) .ring-a { border-color: #58988f47; }:where([data-visual-theme="cartoon"]) .ring-b { border-color: #bb6a9940; }
+:where([data-visual-theme="cartoon"]) .profile-day.today { border-color: #c489ad; box-shadow: 0 0 12px #aa578018; }
+:where([data-visual-theme="cartoon"]) .profile-footer, :where([data-visual-theme="cartoon"]) .friends-footer, :where([data-visual-theme="cartoon"]) .register-footer, :where([data-visual-theme="cartoon"]) .app-footer { border-color: #b1aec41c; color: #7b8ba5; }
+
+:where([data-visual-theme="cartoon"]) .cartoon-confetti { position: absolute; inset: 0; z-index: 2; overflow: hidden; border-radius: inherit; pointer-events: none; }
+:where([data-visual-theme="cartoon"]) .cartoon-confetti i { position: absolute; left: calc(7% + var(--piece) * 7.5%); top: -20px; width: 5px; height: 10px; border-radius: 1px; background: #83c4bb; opacity: 0; }
+:where([data-visual-theme="cartoon"]) .cartoon-confetti i:nth-child(3n) { background: #ca8db1; }
+:where([data-visual-theme="cartoon"]) .cartoon-confetti i:nth-child(3n + 1) { background: #a69abe; width: 7px; height: 7px; border-radius: 50%; }
+
+@media (max-width: 760px) {
+  :where([data-visual-theme="cartoon"]) .game-card { padding: 26px 18px 18px; border-radius: 14px 4px 14px 14px; }
+  :where([data-visual-theme="cartoon"]) .game-card-head { gap: 10px; }
+  :where([data-visual-theme="cartoon"]) .game-card h1 { font-size: clamp(25px, 7vw, 31px); }
+  :where([data-visual-theme="cartoon"]) .attempt-badge { min-width: 53px; padding: 7px 5px 5px; }
+  :where([data-visual-theme="cartoon"]) .attempt-badge span { font-size: 6px; }:where([data-visual-theme="cartoon"]) .attempt-badge strong { font-size: 25px; }
+  :where([data-visual-theme="cartoon"]) .card-kicker { font-size: 8px; letter-spacing: .1em; }:where([data-visual-theme="cartoon"]) .card-kicker svg { display: none; }
+  :where([data-visual-theme="cartoon"]) .map-mascot { width: 65px; height: 65px; flex-basis: 65px; }
+  :where([data-visual-theme="cartoon"]) .guess-item { padding: 4px 2px; }:where([data-visual-theme="cartoon"]) .empty-state p { font-size: 10px; }
+  :where([data-visual-theme="cartoon"]) .mobile-mode-tabs { border-color: #76839729; background: #14203080; }
+  :where([data-visual-theme="cartoon"]) .mobile-tab.active { background: linear-gradient(100deg, #ab648223, #498e921a); box-shadow: inset 0 0 0 1px #ba819b40; }
+  :where([data-visual-theme="cartoon"]) .mobile-tab:first-child svg { color: var(--nexo-pink); }:where([data-visual-theme="cartoon"]) .mobile-tab:last-child svg { color: var(--nexo-cyan); }
+  :where([data-visual-theme="cartoon"]) .mobile-theme-chip.active { border-color: #75b6af77; background: #24434a66; color: #d8eee8; box-shadow: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where([data-visual-theme="cartoon"]) .game-card { animation: cartoon-arrive .65s var(--cartoon-spring) both; }
+  :where([data-visual-theme="cartoon"]) .register-card, :where([data-visual-theme="cartoon"]) .ranking-card { animation: cartoon-arrive .6s var(--cartoon-spring) both; }
+  :where([data-visual-theme="cartoon"]) .attempt-badge strong, :where([data-visual-theme="cartoon"]) .orbit-content strong { animation: cartoon-pop .4s var(--cartoon-spring); }
+  :where([data-visual-theme="cartoon"]) .notice { animation: cartoon-arrive .32s var(--cartoon-spring); }
+  :where([data-visual-theme="cartoon"]) .guess-item.is-latest { animation: cartoon-arrive .4s var(--cartoon-spring); }
+  :where([data-visual-theme="cartoon"]) .guess-item.is-latest .heat-fill { animation: cartoon-fill .65s ease-out; }
+  :where([data-visual-theme="cartoon"]) .map-mascot { animation: cartoon-float 2.8s ease-in-out 2; }
+  :where([data-visual-theme="cartoon"]) .mascot-spark { transform-origin: 71px 17px; animation: cartoon-twinkle 2s ease-in-out 2; }
+  :where([data-visual-theme="cartoon"]) .is-celebrating .solved-icon { animation: cartoon-trophy .7s var(--cartoon-spring); }
+  :where([data-visual-theme="cartoon"]) .cartoon-confetti i { animation: cartoon-confetti 1.2s ease-in both; animation-delay: calc(var(--piece) * 25ms); }
+  :where([data-visual-theme="cartoon"]) .guess-loader { animation: cartoon-spin .8s linear infinite; }
+  :where([data-visual-theme="cartoon"]) .mode-button, :where([data-visual-theme="cartoon"]) .challenge-row, :where([data-visual-theme="cartoon"]) .mobile-tab, :where([data-visual-theme="cartoon"]) .mobile-theme-chip, :where([data-visual-theme="cartoon"]) .guess-form button, :where([data-visual-theme="cartoon"]) .oauth-button, :where([data-visual-theme="cartoon"]) .register-primary, :where([data-visual-theme="cartoon"]) .save-profile-button, :where([data-visual-theme="cartoon"]) .signup-banner button, :where([data-visual-theme="cartoon"]) .friend-invite button, :where([data-visual-theme="cartoon"]) .challenge-icon, :where([data-visual-theme="cartoon"]) .nexo-mark, :where([data-visual-theme="cartoon"]) .register-symbol, :where([data-visual-theme="cartoon"]) .achievement-icon, :where([data-visual-theme="cartoon"]) .ranking-avatar {
+    transition: transform .22s var(--cartoon-spring), box-shadow .22s ease, border-color .22s ease, background .22s ease;
+  }
+  @media (hover: hover) {
+    :where([data-visual-theme="cartoon"]) .guess-form button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 2px 5px 0 var(--cartoon-ink); }
+    :where([data-visual-theme="cartoon"]) .mode-button:not(:disabled):hover, :where([data-visual-theme="cartoon"]) button.challenge-row:not(:disabled):hover { transform: translateX(3px); }
+    :where([data-visual-theme="cartoon"]) .challenge-row:hover .challenge-icon, :where([data-visual-theme="cartoon"]) .achievement.unlocked:hover .achievement-icon, :where([data-visual-theme="cartoon"]) .ranking-row:hover .ranking-avatar, :where([data-visual-theme="cartoon"]) .brand-lockup:hover .nexo-mark { transform: rotate(-4deg) translateY(-1px); }
+    :where([data-visual-theme="cartoon"]) .oauth-button:not(:disabled):hover, :where([data-visual-theme="cartoon"]) .register-primary:hover, :where([data-visual-theme="cartoon"]) .save-profile-button:not(:disabled):hover, :where([data-visual-theme="cartoon"]) .signup-banner button:not(:disabled):hover, :where([data-visual-theme="cartoon"]) .friend-invite button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 2px 5px 0 var(--cartoon-ink); }
+  }
+  :where([data-visual-theme="cartoon"]) .guess-form button:not(:disabled):active, :where([data-visual-theme="cartoon"]) .oauth-button:not(:disabled):active, :where([data-visual-theme="cartoon"]) .register-primary:active, :where([data-visual-theme="cartoon"]) .save-profile-button:not(:disabled):active, :where([data-visual-theme="cartoon"]) .signup-banner button:not(:disabled):active, :where([data-visual-theme="cartoon"]) .friend-invite button:not(:disabled):active {
+    transform: translateY(1px); box-shadow: 0 0 0 var(--cartoon-ink);
+  }
+}
+
+@keyframes cartoon-arrive { from { opacity: 0; transform: translateY(7px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes cartoon-pop { 0% { transform: scale(.92); } 65% { transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes cartoon-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes cartoon-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes cartoon-twinkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(.65) rotate(30deg); } }
+@keyframes cartoon-trophy { 0% { transform: rotate(-5deg) scale(.9); } 60% { transform: rotate(3deg) scale(1.05); } 100% { transform: rotate(0) scale(1); } }
+@keyframes cartoon-confetti { 0% { opacity: 0; transform: translateY(0) rotate(0); } 10%, 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(480px) rotate(320deg); } }
+@keyframes cartoon-spin { to { transform: rotate(360deg); } }
+
+
+
+/* Also neutralize the older hover/entry rules when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  :where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) *, :where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) *::before, :where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  :where([data-visual-theme="cartoon"]) :is(.app-shell, .profile-shell, .friends-shell, .register-shell) :is(button, a):is(:hover, :active) { transform: none; }
+  :where([data-visual-theme="cartoon"]) .cartoon-confetti { display: none; }
+}
