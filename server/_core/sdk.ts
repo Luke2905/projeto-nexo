@@ -285,6 +285,7 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
+    if (!user && sessionUserId.startsWith("local_")) throw ForbiddenError("Session revoked");
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
@@ -307,10 +308,7 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    await db.touchUser(user.id, signedInAt);
 
     return user;
   }

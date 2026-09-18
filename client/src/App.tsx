@@ -1,6 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import NexoMap from "@/pages/NexoMap";
+import ProfileSettings from "@/pages/ProfileSettings";
 import Profile from "@/pages/Profile";
 import Friends from "@/pages/Friends";
 import Register from "@/pages/Register";
@@ -15,7 +17,10 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/perfil/editar"} component={ProfileSettings} />
       <Route path={"/perfil"} component={Profile} />
+      <Route path={"/nexomap"}><NexoMap /></Route>
+      <Route path={"/nexomap/:id"}>{params => Number.isInteger(Number(params.id)) && Number(params.id) > 0 ? <NexoMap userId={Number(params.id)} /> : <NotFound />}</Route>
       <Route path={"/amigos"} component={Friends} />
       <Route path={"/cadastro"} component={Register} />
       <Route path={"/404"} component={NotFound} />

@@ -36,6 +36,13 @@
       "when": 1789691614630,
       "tag": "0004_red_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1789758508129,
+      "tag": "0005_nexomap",
+      "breakpoints": true
     }
   ]
 }

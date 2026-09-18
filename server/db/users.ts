@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 /**
  * @file users.ts
  * @description Database repository for user-related operations.
@@ -85,7 +86,7 @@ export async function updateUserProfile(userId: number, input: { name?: string; 
 export async function createLocalUser(input: { username: string; name: string; passwordHash: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
-  const openId = `local_${input.username}`;
+  const openId = `local_${randomUUID()}`;
   await db.insert(users).values({
     openId,
     username: input.username,
@@ -94,4 +95,10 @@ export async function createLocalUser(input: { username: string; name: string; p
     loginMethod: "password",
   });
   return getUserByOpenId(openId);
+}
+
+
+export async function touchUser(userId: number, date: Date) {
+  const db = await getDb();
+  if (db) await db.update(users).set({ lastSignedIn: date }).where(eq(users.id, userId));
 }

@@ -1,5 +1,11 @@
 # Game Plan: Contexto Temas
 
+## Prioridade atual — 18/09/2026
+
+**NexoMap:** tela pessoal com trilha de conquistas, objetivos, emblemas e ranking, conforme direção indicada pelo usuário. Ver [ROADMAP.md](ROADMAP.md) para o escopo proposto, regras a definir e backlog completo. A primeira implementação do NexoMap está concluída no código. Em 18/09/2026, o usuário informou que já atualizou o SQL; a publicação do código permanece pendente. As seções abaixo preservam o plano histórico da primeira versão.
+
+O escopo de produto inclui acompanhar a evolução dos amigos e ampliar a gestão do perfil. Ver [NEXOMAP.md](NEXOMAP.md) para a adaptação da referência Keeplay, com identidade própria do Nexo.
+
 ## Risk Tasks
 
 ### 1. Proximidade semântica simulada no cliente

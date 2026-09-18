@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS `game_sessions` (
   `lost` int NOT NULL DEFAULT 0,
   `retryCount` int NOT NULL DEFAULT 0,
   `progressJson` text,
+  `verified` int NOT NULL DEFAULT 0,
+  `totalGuesses` int NOT NULL DEFAULT 0,
+  `completedAt` timestamp NULL,
   `playedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,4 +38,30 @@ CREATE TABLE IF NOT EXISTS `friendships` (
   `friendUserId` int NOT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'accepted',
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- NexoMap: tabelas de perfil, conquistas e bloqueios.
+CREATE TABLE IF NOT EXISTS `nexo_achievements` (
+	`userId` int NOT NULL,
+	`achievementId` varchar(40) NOT NULL,
+	`unlockedAt` timestamp,
+	CONSTRAINT `nexo_achievements_userId_achievementId_pk` PRIMARY KEY(`userId`,`achievementId`)
+);
+
+CREATE TABLE IF NOT EXISTS `nexo_blocks` (
+	`userId` int NOT NULL,
+	`blockedUserId` int NOT NULL,
+	CONSTRAINT `nexo_blocks_userId_blockedUserId_pk` PRIMARY KEY(`userId`,`blockedUserId`)
+);
+
+CREATE TABLE IF NOT EXISTS `nexo_profiles` (
+	`userId` int NOT NULL,
+	`bio` varchar(240) NOT NULL DEFAULT '',
+	`title` varchar(40) NOT NULL DEFAULT 'iniciante',
+	`badges` text,
+	`accent` varchar(16) NOT NULL DEFAULT 'coral',
+	`visibility` enum('public','friends','private') NOT NULL DEFAULT 'friends',
+	`publishActivity` int NOT NULL DEFAULT 1,
+	`showRanking` int NOT NULL DEFAULT 1,
+	CONSTRAINT `nexo_profiles_userId` PRIMARY KEY(`userId`)
 );

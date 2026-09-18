@@ -56,13 +56,9 @@ export default function Home() {
 
   // ── Mutations ───────────────────────────────────────────────────────────────
   const submitGuessMutation = trpc.challenges.submitGuess.useMutation();
-  const saveProgress = trpc.games.saveProgress.useMutation({
-    onSuccess: () => utils.games.history.invalidate(),
-    onError: (_error, variables) => {
-      if (variables.challengeId === activeId) setNotice("Seu progresso está nesta aba, mas não foi salvo na conta. Tente novamente em instantes.");
-    },
-  });
+  const savedGuess = trpc.games.guess.useMutation();
   const giveUp = trpc.games.giveUp.useMutation({
+    onError: cause => setNotice(cause.message),
     onSuccess: () => {
       utils.games.history.invalidate();
       if (activeId) drafts.current.delete(`${user?.id ?? "guest"}:${activeId}`);
@@ -90,6 +86,7 @@ export default function Home() {
   const [latestWord, setLatestWord] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const pendingRequest = useRef<{ challengeId: string; word: string; requestId: string } | null>(null);
   const drafts = useRef(new Map<string, Guess[]>());
   const draftKey = `${user?.id ?? "guest"}:${activeId}`;
   const archiveDays = archive.data?.challenges ?? [];
@@ -98,7 +95,8 @@ export default function Home() {
     { date: activeId?.slice(6) ?? "" },
     { enabled: Boolean(activeId?.startsWith("daily-") && activeId !== daily.data?.challengeId && !archiveDays.some(day => day.challengeId === activeId)), staleTime: Infinity },
   );
-  const switchingDisabled = submitGuessMutation.isPending || hintLoading || giveUp.isPending || retryGame.isPending;
+  const submitting = submitGuessMutation.isPending || savedGuess.isPending;
+  const switchingDisabled = submitting || hintLoading || giveUp.isPending || retryGame.isPending;
 
   useEffect(() => {
     if (!celebrating) return;
@@ -191,15 +189,21 @@ export default function Home() {
   async function submitGuess(event?: React.FormEvent) {
     event?.preventDefault();
     const word = input.trim();
-    if (!word || !activeId || solved || lost || submitGuessMutation.isPending) return;
+    if (!word || !activeId || solved || lost || submitting) return;
     if (guesses.some((g) => normalizeWord(g.word) === normalizeWord(word))) {
       setNotice("Essa palavra já está no seu mapa de pistas.");
       return;
     }
 
     try {
-      const result = await submitGuessMutation.mutateAsync({ challengeId: activeId, word });
-      const nextGuesses = [result, ...guesses];
+      if (pendingRequest.current?.challengeId !== activeId || pendingRequest.current.word !== word) {
+        pendingRequest.current = { challengeId: activeId, word, requestId: crypto.randomUUID() };
+      }
+      const result = isAuthenticated
+        ? await savedGuess.mutateAsync(pendingRequest.current)
+        : await submitGuessMutation.mutateAsync({ challengeId: activeId, word }).then(result => ({ ...result, guesses: [result, ...guesses], awards: [] as string[] }));
+      pendingRequest.current = null;
+      const nextGuesses = result.guesses;
       drafts.current.set(draftKey, nextGuesses);
       setGuesses(nextGuesses);
       setLatestWord(result.word);
@@ -208,13 +212,8 @@ export default function Home() {
       setNotice(result.solved ? "Você encontrou a palavra secreta." : "Pista registrada. Continue aproximando.");
 
       if (isAuthenticated) {
-        saveProgress.mutate({
-          challengeId: activeId,
-          guesses: nextGuesses.length,
-          bestRank: Math.min(...nextGuesses.map((g) => g.rank)),
-          solved: result.solved,
-          progressJson: result.solved ? undefined : JSON.stringify(nextGuesses),
-        });
+        await Promise.all([utils.games.history.invalidate(), utils.nexomap.invalidate()]);
+        if (result.awards.length) setNotice("Nova conquista: " + result.awards.join(", ") + "! Veja seu NexoMap.");
       }
     } catch (err: any) {
       setNotice(err?.message ?? "Algo deu errado. Tente novamente.");
@@ -290,6 +289,7 @@ export default function Home() {
           <div className="topbar-actions">
             <AppearanceSwitcher />
             <div className="streak-chip"><Flame size={15} fill="currentColor" /> <strong>{history.filter((g) => g.solved).length}</strong><span>resolvidos</span></div>
+            <Link href="/nexomap" className="friends-top-link">NexoMap</Link>
             <Link href="/amigos" className="friends-top-link">amigos</Link>
             <Link href={isAuthenticated ? "/perfil" : "/cadastro"} className="avatar-button" aria-label={isAuthenticated ? "Abrir perfil" : "Criar cadastro"}>{user?.avatarUrl ? <img src={user.avatarUrl} alt="Seu perfil" /> : user?.name?.slice(0, 2).toUpperCase() ?? "ID"}</Link>
           </div>
@@ -426,7 +426,7 @@ export default function Home() {
 
 
 
-              <form className="guess-form" onSubmit={submitGuess} aria-busy={submitGuessMutation.isPending}>
+              <form className="guess-form" onSubmit={submitGuess} aria-busy={submitting}>
                 <Search size={19} className="search-icon" />
                 <input
                   value={input}
@@ -434,9 +434,9 @@ export default function Home() {
                   placeholder="Digite uma palavra..."
                   aria-label="Digite uma palavra"
                   autoComplete="off"
-                  disabled={!activeChallenge || solved || lost || submitGuessMutation.isPending}
+                  disabled={!activeChallenge || solved || lost || submitting}
                 />
-                <button type="submit" aria-label={submitGuessMutation.isPending ? "Enviando palpite" : "Enviar palpite"} disabled={!activeChallenge || solved || lost || submitGuessMutation.isPending}>
+                <button type="submit" aria-label={submitting ? "Enviando palpite" : "Enviar palpite"} disabled={!activeChallenge || solved || lost || submitting}>
                   {submitGuessMutation.isPending ? <LoaderCircle size={19} className="guess-loader" /> : <ArrowRight size={19} />}
                 </button>
               </form>

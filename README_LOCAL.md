@@ -343,3 +343,19 @@ das palavras, suas relações semânticas e das condições de reutilização da
 Depois, os candidatos aprovados entram em uma nova versão do catálogo. Uma API
 de palavras aleatórias, sozinha, não garante uma resposta diária compartilhada,
 ausência de repetições ou a qualidade do cálculo de proximidade do jogo.
+
+## NexoMap: conquistas, perfil e amigos
+
+Acesse /nexomap (ou /perfil) para explorar o mapa. /perfil/editar gerencia identidade, títulos, emblemas, foto, visibilidade e conta. /amigos reúne busca de jogadores, solicitações, amizades e atividades; /nexomap/:id abre o mapa de outra pessoa conforme suas permissões.
+
+Antes de publicar esta versão, aplique a migração 0005. O arquivo [ATUALIZAR_NEXOMAP.sql](ATUALIZAR_NEXOMAP.sql) contém a atualização manual de um banco existente e o registro da migração. Veja [BANCO_NEXOMAP.md](BANCO_NEXOMAP.md). Não use database.sql como atualização: ele é para instalações novas.
+
+As oito conquistas usam regras de descoberta, constância e precisão. A contagem de desafios é distinta por identificador; recomeços não permitem conquistar precisão. Diários antigos concluídos hoje não formam uma sequência. XP: 100 por desafio resolvido, mais o bônus único das conquistas; cada nível exige 500 XP. Semana e sequência usam UTC.
+
+O servidor salva os palpites autenticados em transação, serializada pela conta, e aceita um identificador de requisição para impedir duplicações por reenvio. O endpoint antigo games.saveProgress não aceita mais contadores ou vitórias do cliente. Partidas históricas permanecem preservadas e não recebem datas ou precisão retroativas.
+
+O mapa inclui marcos dos amigos quando o perfil permite a visita; não se trata de presença ao vivo. O feed respeita publicação de atividades, visibilidade e bloqueios, e não expõe respostas nem palpites. O ranking geral requer mapa público e participação ativada; o ranking entre amigos respeita a visibilidade. Desempate usa o identificador de cadastro.
+
+A troca de senha invalida sessões anteriores. A mudança de @usuário preserva o identificador interno, amizades e progresso. As fotos são convertidas no navegador em JPEG de 192 × 192, limitado a 40.000 caracteres de data URL, e gravadas no campo de avatar existente, sem serviço externo.
+
+Validação: testes de progressão, privacidade e transições de partidas, verificação de tipos, build e teste do entrypoint de produção. Revisão visual e interações com respostas simuladas da API em desktop/mobile e nos dois temas. Integração com o MySQL/TiDB real depende de um banco configurado.

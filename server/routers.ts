@@ -10,8 +10,9 @@ import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { addFriend, createLocalUser, getFriends, getGameHistory, getLeaderboard, getUserByUsername, giveUpGame, recordGameSession, retryGame, updateUserProfile } from "./db";
+import { addFriend, createLocalUser, getFriends, getGameHistory, getLeaderboard, getUserByUsername, giveUpGame, submitSavedGuess, retryGame, updateUserProfile } from "./db";
 import { hashPassword, normalizeUsername, verifyPassword } from "./localAuth";
+import { nexomapRouter } from "./nexomapRouter";
 import { storagePut } from "./storage";
 
 const failedLogins = new Map<string, { count: number; resetAt: number }>();
@@ -65,6 +66,7 @@ async function createLocalSession(ctx: { res: any; req: any }, user: { openId: s
 
 export const appRouter = router({
   system: systemRouter,
+  nexomap: nexomapRouter,
   
   /** 
    * Authentication and user profile router.
@@ -96,7 +98,7 @@ export const appRouter = router({
           avatarUrl = uploaded.url;
         }
         const user = await updateUserProfile(ctx.user.id, { ...(input.name ? { name: input.name } : {}), ...(avatarUrl ? { avatarUrl } : {}) });
-        return user;
+        return { success: true };
       }),
     register: publicProcedure
       .input(z.object({ username: usernameSchema, name: z.string().trim().min(2).max(80), password: passwordSchema }))
@@ -218,6 +220,7 @@ export const appRouter = router({
    * Game sessions and challenge progression router.
    */
   games: router({
+    guess: protectedProcedure.input(z.object({ challengeId: z.string().max(96), word: z.string().trim().min(1).max(80), requestId: z.string().uuid() })).mutation(({ ctx, input }) => submitSavedGuess(ctx.user.id, input)),
     history: protectedProcedure.query(({ ctx }) => getGameHistory(ctx.user.id)),
     giveUp: protectedProcedure.input(z.object({ challengeId: z.string().max(96) })).mutation(({ ctx, input }) => giveUpGame(ctx.user.id, input.challengeId)),
     retry: protectedProcedure.input(z.object({ challengeId: z.string().max(96) })).mutation(async ({ ctx, input }) => {
@@ -226,8 +229,8 @@ export const appRouter = router({
       return result;
     }),
     /**
-     * Saves progress after a server-validated guess.
-     * The 'solved' and 'bestRank' come from the server's evaluateGuess — not from the client.
+     * Legacy endpoint retained only to tell old clients to reload.
+     * New clients submit individual guesses via games.guess.
      */
     saveProgress: protectedProcedure
       .input(z.object({
@@ -237,7 +240,7 @@ export const appRouter = router({
         solved: z.boolean(),
         progressJson: z.string().max(50_000).optional(),
       }))
-      .mutation(({ ctx, input }) => recordGameSession({ ...input, userId: ctx.user.id })),
+      .mutation(() => { throw new TRPCError({ code: "BAD_REQUEST", message: "Atualize a página para salvar seus palpites com a nova versão." }); }),
   }),
   
   /**
