@@ -16,11 +16,24 @@ import {
   Sparkles,
   Target,
   Trophy,
+  User,
+  Users,
 } from "lucide-react";
 import { Link } from "wouter";
 import AppearanceSwitcher from "@/components/AppearanceSwitcher";
 import DailyCalendar, { type DailyCalendarStatus } from "@/components/DailyCalendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import WelcomeModal from "@/components/WelcomeModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useVisualTheme } from "@/contexts/VisualThemeContext";
 
 type Mode = "daily" | "themes";
@@ -57,6 +70,7 @@ export default function Home() {
   // ── Mutations ───────────────────────────────────────────────────────────────
   const submitGuessMutation = trpc.challenges.submitGuess.useMutation();
   const savedGuess = trpc.games.guess.useMutation();
+  const closeHintMutation = trpc.games.useCloseHint.useMutation();
   const giveUp = trpc.games.giveUp.useMutation({
     onError: cause => setNotice(cause.message),
     onSuccess: () => {
@@ -86,6 +100,7 @@ export default function Home() {
   const [latestWord, setLatestWord] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [hintDialogOpen, setHintDialogOpen] = useState(false);
   const pendingRequest = useRef<{ challengeId: string; word: string; requestId: string } | null>(null);
   const drafts = useRef(new Map<string, Guess[]>());
   const draftKey = `${user?.id ?? "guest"}:${activeId}`;
@@ -233,6 +248,22 @@ export default function Home() {
     }
   }
 
+  async function handleCloseHint() {
+    if (!activeId) return;
+    setHintDialogOpen(false);
+    try {
+      const result = await closeHintMutation.mutateAsync({ challengeId: activeId, requestId: crypto.randomUUID() });
+      if (!result.duplicate && result.word) {
+        setNotice(`Palavra próxima revelada: ${result.word.toUpperCase()} (-10 XP no mapa)`);
+        const nextGuesses = result.guesses as Guess[];
+        drafts.current.set(draftKey, nextGuesses);
+        setGuesses(nextGuesses);
+      }
+    } catch (err: any) {
+      setNotice(err?.message ?? "Algo deu errado ao revelar a palavra.");
+    }
+  }
+
   function handleGiveUp() {
     if (!isAuthenticated) { setNotice("Entre ou crie uma conta para salvar a desistência."); return; }
     if (activeId) giveUp.mutate({ challengeId: activeId });
@@ -255,8 +286,8 @@ export default function Home() {
   // ── Render helpers ──────────────────────────────────────────────────────────
   const displayDate = activeChallenge?.kind === "Diário"
     ? new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(
-        new Date(`${activeChallenge.challengeId.replace("daily-", "")}T12:00:00Z`),
-      )
+      new Date(`${activeChallenge.challengeId.replace("daily-", "")}T12:00:00Z`),
+    )
     : "…";
 
   const dailyLabel = daily.data?.label ?? "hoje";
@@ -275,22 +306,27 @@ export default function Home() {
 
   return (
     <main className="app-shell min-h-screen overflow-hidden">
+      <WelcomeModal isAuthenticated={isAuthenticated} />
       <div className="ambient-orb orb-one" />
       <div className="ambient-orb orb-two" />
       <div className="app-frame">
         <header className="topbar">
-          <div className="brand-lockup" aria-label="Nexo Temas">
-            <div className="brand-mark nexo-mark"><span>N</span><i /></div>
+          <Link href="/" className="brand-lockup hover:opacity-95 transition-opacity cursor-pointer" aria-label="Nexo Início">
+            <img src="/nexo-logo.png" alt="Nexo" className="brand-logo-img" />
             <div>
-              <div className="brand-name">nexo<span>•</span></div>
-              <div className="brand-subtitle">mapas & palavras</div>
+              <div className="brand-name">NEXO</div>
+              <div className="brand-subtitle">mapeando palavras</div>
             </div>
-          </div>
+          </Link>
           <div className="topbar-actions">
             <AppearanceSwitcher />
             <div className="streak-chip"><Flame size={15} fill="currentColor" /> <strong>{history.filter((g) => g.solved).length}</strong><span>resolvidos</span></div>
-            <Link href="/nexomap" className="friends-top-link">NexoMap</Link>
-            <Link href="/amigos" className="friends-top-link">amigos</Link>
+            {isAuthenticated && (
+              <>
+                <Link href="/nexomap" className="friends-top-link"><User size={14} /> NexoMap</Link>
+                <Link href="/comunidade" className="friends-top-link"><Users size={14} /> Comunidade</Link>
+              </>
+            )}
             <Link href={isAuthenticated ? "/perfil" : "/cadastro"} className="avatar-button" aria-label={isAuthenticated ? "Abrir perfil" : "Criar cadastro"}>{user?.avatarUrl ? <img src={user.avatarUrl} alt="Seu perfil" /> : user?.name?.slice(0, 2).toUpperCase() ?? "ID"}</Link>
           </div>
         </header>
@@ -421,7 +457,17 @@ export default function Home() {
                   <p className="card-kicker">{visualTheme === "cartoon" && <Target size={13} />}encontre a palavra</p>
                   <h1>{activeChallenge?.kind === "Diário" ? activeId === daily.data?.challengeId ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge.label.split(" · ")[0]}?` : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
                 </div>
-                <div className="attempt-badge"><span>tentativas</span><strong key={guesses.length}>{guesses.length.toString().padStart(2, "0")}</strong></div>
+                <div className="flex flex-col items-end gap-3">
+                  <div className="attempt-badge"><span>tentativas</span><strong key={guesses.length}>{guesses.length.toString().padStart(2, "0")}</strong></div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={showHint} disabled={hintLoading || lost} className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#ff9fad] to-[#ffc5cc] text-[#300a12] text-[13px] font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-md disabled:opacity-50"><Lightbulb size={15} fill="currentColor" /> {hintLoading ? "buscando..." : "Dica"}</button>
+                    {isAuthenticated && (
+                      <button onClick={() => setHintDialogOpen(true)} disabled={closeHintMutation.isPending || lost || solved} className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#e0e0e0] to-[#f5f5f5] text-[#333] border border-[#d0d0d0] text-[13px] font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-md disabled:opacity-50">
+                        <Search size={15} /> Revelar Próxima
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
 
@@ -500,7 +546,22 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="card-footer">
+              <AlertDialog open={hintDialogOpen} onOpenChange={setHintDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Revelar uma palavra próxima?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Isso revelará uma palavra próxima da palavra secreta, mas custará <strong>-10 XP</strong> no final deste desafio.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCloseHint}>Confirmar</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <div className="card-footer items-center">
                 <span><span className="legend-dot hot" /> quente = perto da resposta</span>
                 <span className="card-actions">
                   <button onClick={showHint} disabled={hintLoading || lost}><Lightbulb size={14} /> {hintLoading ? "buscando dica..." : "ver dica"}</button>
@@ -532,7 +593,7 @@ export default function Home() {
           </aside>
         </div>
 
-        <footer className="app-footer"><span>feito para mentes curiosas</span><span className="footer-center">nexo<span>•</span> <small>beta</small></span><span>sem pressa · sem limite de tentativas</span></footer>
+        <footer className="app-footer"><span>feito para mentes curiosas</span><span className="footer-center"><span className="brand-name" style={{ fontSize: "13px", textShadow: "none" }}>NEXO</span> <small>beta</small></span><span>sem pressa · sem limite de tentativas</span></footer>
       </div>
     </main>
   );

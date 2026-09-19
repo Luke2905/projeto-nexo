@@ -5,6 +5,7 @@ import NexoMap from "@/pages/NexoMap";
 import ProfileSettings from "@/pages/ProfileSettings";
 import Profile from "@/pages/Profile";
 import Friends from "@/pages/Friends";
+import Community from "@/pages/Community";
 import Register from "@/pages/Register";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -22,6 +23,7 @@ function Router() {
       <Route path={"/nexomap"}><NexoMap /></Route>
       <Route path={"/nexomap/:id"}>{params => Number.isInteger(Number(params.id)) && Number(params.id) > 0 ? <NexoMap userId={Number(params.id)} /> : <NotFound />}</Route>
       <Route path={"/amigos"} component={Friends} />
+      <Route path={"/comunidade"}><Community /></Route>
       <Route path={"/cadastro"} component={Register} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

@@ -102,6 +102,7 @@ export type ProgressSession = {
   solved: number;
   guesses: number;
   retryCount: number;
+  hintPenalty: number;
   verified: number;
   completedAt: Date | string | null;
 };
@@ -116,6 +117,7 @@ export function calculateProgress(
       sessions.filter(s => s.solved).map(s => [s.challengeId, s])
     ).values()
   );
+  const totalHintPenalty = solved.reduce((sum, s) => sum + (s.hintPenalty || 0), 0);
   const precise = solved.filter(
     s => s.verified && s.guesses > 0 && s.guesses <= 5 && s.retryCount === 0
   ).length;
@@ -148,9 +150,11 @@ export function calculateProgress(
     progress: Math.min(a.goal, metrics[a.metric]),
     unlocked: metrics[a.metric] >= a.goal,
   }));
-  const xp =
+  const xp = Math.max(0, 
     solved.length * 100 +
-    achievements.filter(a => a.unlocked).reduce((sum, a) => sum + a.xp, 0);
+    achievements.filter(a => a.unlocked).reduce((sum, a) => sum + a.xp, 0) -
+    totalHintPenalty
+  );
   const weekStart = new Date(`${utcDay(now)}T00:00:00Z`);
   weekStart.setUTCDate(
     weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7)

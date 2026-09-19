@@ -149,15 +149,15 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const { getDailyChallengeMeta, getEntryForChallenge, todayUTC } = await import("./game/engine");
         const date = input?.date ?? todayUTC();
-        if (!getEntryForChallenge(`daily-${date}`)) {
+        if (!(await getEntryForChallenge(`daily-${date}`))) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado ou ainda não disponível." });
         }
-        return getDailyChallengeMeta(date);
+        return await getDailyChallengeMeta(date);
       }),
 
     getDailyArchive: publicProcedure.query(async () => {
       const { getDailyArchive } = await import("./game/engine");
-      return getDailyArchive();
+      return await getDailyArchive();
     }),
 
     /**
@@ -184,7 +184,7 @@ export const appRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Digite apenas uma palavra, sem espaços ou frases." });
         }
 
-        const entry = getEntryForChallenge(input.challengeId);
+        const entry = await getEntryForChallenge(input.challengeId);
         if (!entry) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado." });
         }
@@ -212,7 +212,7 @@ export const appRouter = router({
       .input(z.object({ challengeId: z.string().max(96) }))
       .query(async ({ input }) => {
         const { getHintForChallenge } = await import("./game/engine");
-        return { hint: getHintForChallenge(input.challengeId) };
+        return { hint: await getHintForChallenge(input.challengeId) };
       }),
   }),
 
@@ -221,6 +221,10 @@ export const appRouter = router({
    */
   games: router({
     guess: protectedProcedure.input(z.object({ challengeId: z.string().max(96), word: z.string().trim().min(1).max(80), requestId: z.string().uuid() })).mutation(({ ctx, input }) => submitSavedGuess(ctx.user.id, input)),
+    useCloseHint: protectedProcedure.input(z.object({ challengeId: z.string().max(96), requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+      const { useCloseHint } = await import("./db/games");
+      return useCloseHint(ctx.user.id, input.challengeId, input.requestId);
+    }),
     history: protectedProcedure.query(({ ctx }) => getGameHistory(ctx.user.id)),
     giveUp: protectedProcedure.input(z.object({ challengeId: z.string().max(96) })).mutation(({ ctx, input }) => giveUpGame(ctx.user.id, input.challengeId)),
     retry: protectedProcedure.input(z.object({ challengeId: z.string().max(96) })).mutation(async ({ ctx, input }) => {

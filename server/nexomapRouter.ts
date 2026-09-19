@@ -21,6 +21,8 @@ import {
   friendsFeed,
   mapCompanions,
   mapLeaderboard,
+  likeEvent,
+  unlikeEvent,
 } from "./db/nexomap";
 import { lockUser, requireDb } from "./db/nexoProgress";
 import { hashPassword, verifyPassword } from "./localAuth";
@@ -108,6 +110,12 @@ export const nexomapRouter = router({
     ),
   companions: protectedProcedure.query(({ ctx }) => mapCompanions(ctx.user.id)),
   feed: protectedProcedure.query(({ ctx }) => friendsFeed(ctx.user.id)),
+  likeEvent: protectedProcedure
+    .input(z.object({ eventId: z.string() }))
+    .mutation(({ ctx, input }) => likeEvent(ctx.user.id, input.eventId)),
+  unlikeEvent: protectedProcedure
+    .input(z.object({ eventId: z.string() }))
+    .mutation(({ ctx, input }) => unlikeEvent(ctx.user.id, input.eventId)),
   ranking: publicProcedure
     .input(z.object({ scope: z.enum(["global", "friends"]) }))
     .query(({ ctx, input }) => {

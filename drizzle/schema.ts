@@ -24,6 +24,7 @@ export const gameSessions = mysqlTable("game_sessions", {
   solved: int("solved").notNull().default(0),
   lost: int("lost").notNull().default(0),
   retryCount: int("retryCount").notNull().default(0),
+  hintPenalty: int("hintPenalty").notNull().default(0),
   progressJson: text("progressJson"),
   verified: int("verified").notNull().default(0),
   totalGuesses: int("totalGuesses").notNull().default(0),
@@ -65,3 +66,20 @@ export const nexoBlocks = mysqlTable("nexo_blocks", {
   userId: int("userId").notNull(),
   blockedUserId: int("blockedUserId").notNull(),
 }, table => [primaryKey({ columns: [table.userId, table.blockedUserId] })]);
+
+export const nexoDailyChallenges = mysqlTable("nexo_daily_challenges", {
+  date: varchar("date", { length: 10 }).primaryKey(),
+  word: varchar("word", { length: 64 }).notNull(),
+  prompt: varchar("prompt", { length: 255 }).notNull(),
+  category: varchar("category", { length: 64 }).notNull(),
+  aliasesJson: text("aliases_json").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type NexoDailyChallenge = typeof nexoDailyChallenges.$inferSelect;
+
+export const nexoFeedLikes = mysqlTable("nexo_feed_likes", {
+  userId: int("userId").notNull(),
+  eventId: varchar("eventId", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [primaryKey({ columns: [table.userId, table.eventId] })]);

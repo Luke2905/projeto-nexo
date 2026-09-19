@@ -15,6 +15,7 @@ import {
   gameSessions,
   nexoAchievements,
   nexoBlocks,
+  nexoFeedLikes,
   nexoProfiles,
   users,
 } from "../../drizzle/schema";
@@ -409,9 +410,51 @@ export async function friendsFeed(userId: number) {
         at: completion.at!,
       });
   }
-  return feed
+  
+  const sortedFeed = feed
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, 40);
+
+  const eventIds = sortedFeed.map(f => f.id);
+  if (eventIds.length) {
+    const allLikes = await db
+      .select({
+        eventId: nexoFeedLikes.eventId,
+        userId: nexoFeedLikes.userId
+      })
+      .from(nexoFeedLikes)
+      .where(inArray(nexoFeedLikes.eventId, eventIds));
+
+    for (const item of sortedFeed) {
+      const likes = allLikes.filter(l => l.eventId === item.id);
+      item.likes = likes.length;
+      item.likedByMe = likes.some(l => l.userId === userId);
+    }
+  } else {
+    for (const item of sortedFeed) {
+      item.likes = 0;
+      item.likedByMe = false;
+    }
+  }
+
+  return sortedFeed;
+}
+
+export async function likeEvent(userId: number, eventId: string) {
+  const db = await requireDb();
+  await db
+    .insert(nexoFeedLikes)
+    .values({ userId, eventId })
+    .onDuplicateKeyUpdate({ set: { userId } });
+  return { success: true };
+}
+
+export async function unlikeEvent(userId: number, eventId: string) {
+  const db = await requireDb();
+  await db
+    .delete(nexoFeedLikes)
+    .where(and(eq(nexoFeedLikes.userId, userId), eq(nexoFeedLikes.eventId, eventId)));
+  return { success: true };
 }
 export async function mapLeaderboard(
   viewer?: number,

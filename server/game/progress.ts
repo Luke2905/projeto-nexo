@@ -11,8 +11,8 @@ export type StoredGuess = ReturnType<typeof evaluateGuess> & {
   word: string;
   requestId?: string;
 };
-export function validatedGuess(challengeId: string, word: string) {
-  const entry = getEntryForChallenge(challengeId);
+export async function validatedGuess(challengeId: string, word: string) {
+  const entry = await getEntryForChallenge(challengeId);
   if (!entry)
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -38,7 +38,7 @@ export function readGuesses(json: string | null): StoredGuess[] {
     return [];
   }
 }
-export function appendGuess(
+export async function appendGuess(
   previous: StoredGuess[],
   challengeId: string,
   word: string,
@@ -67,7 +67,7 @@ export function appendGuess(
       code: "BAD_REQUEST",
       message: "Limite de armazenamento desta partida atingido.",
     });
-  const result = validatedGuess(challengeId, word);
+  const result = await validatedGuess(challengeId, word);
   return {
     result,
     guesses: [{ ...result, requestId }, ...previous],

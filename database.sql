@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `game_sessions` (
   `solved` int NOT NULL DEFAULT 0,
   `lost` int NOT NULL DEFAULT 0,
   `retryCount` int NOT NULL DEFAULT 0,
+  `hintPenalty` int NOT NULL DEFAULT 0,
   `progressJson` text,
   `verified` int NOT NULL DEFAULT 0,
   `totalGuesses` int NOT NULL DEFAULT 0,

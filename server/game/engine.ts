@@ -65,38 +65,44 @@ export function evaluateGuess(
 }
 
 /**
- * Returns the UTC date string (YYYY-MM-DD) for today.
+ * Returns the local date string (YYYY-MM-DD) for today in Brazil (America/Sao_Paulo).
  */
 export function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 
 /** Current-month archive, including today, without creating rows or exposing
  * answers. Reuses historical IDs so existing sessions remain attached. */
-export function getDailyArchive() {
+export async function getDailyArchive() {
   const today = todayUTC();
   const month = today.slice(0, 7);
   const day = Number(today.slice(8));
+  
+  const challenges = [];
+  for (let index = 0; index < day; index++) {
+    const dateStr = `${month}-${String(day - index).padStart(2, "0")}`;
+    const meta = await getDailyChallengeMeta(dateStr);
+    challenges.push(meta);
+  }
+  
   return {
     today,
     month,
-    challenges: Array.from({ length: day }, (_, index) =>
-      getDailyChallengeMeta(`${month}-${String(day - index).padStart(2, "0")}`),
-    ),
+    challenges,
   };
 }
 
 /**
  * Returns the daily challenge metadata for the client (no answer exposed).
  */
-export function getDailyChallengeMeta(dateStr: string): {
+export async function getDailyChallengeMeta(dateStr: string): Promise<{
   challengeId: string;
   prompt: string;
   category: string;
   accent: string;
   label: string;
-} {
-  const entry = getEntryForDate(dateStr);
+}> {
+  const entry = await getEntryForDate(dateStr);
   const dayIndex = dayIndexForDate(dateStr);
   const displayDate = new Date(`${dateStr}T12:00:00Z`);
   const label = new Intl.DateTimeFormat("pt-BR", {
@@ -134,8 +140,8 @@ export function getThemesMeta() {
  * Returns the subtle category hint for a challenge.
  * The hint is based on category — never reveals the answer.
  */
-export function getHintForChallenge(challengeId: string): string {
-  const entry = getEntryForChallenge(challengeId);
+export async function getHintForChallenge(challengeId: string): Promise<string> {
+  const entry = await getEntryForChallenge(challengeId);
 
   if (!entry) return "A resposta aparece quando duas ideias começam a se aproximar.";
   return CATEGORY_HINTS[entry.category] ?? "A resposta aparece quando duas ideias começam a se aproximar.";
@@ -145,13 +151,13 @@ export function getHintForChallenge(challengeId: string): string {
  * Internal: looks up the WordEntry for a challengeId to validate a guess.
  * Used by server routes only; answers are never returned to clients.
  */
-export function getEntryForChallenge(challengeId: string): WordEntry | null {
+export async function getEntryForChallenge(challengeId: string): Promise<WordEntry | null> {
   if (challengeId.startsWith("daily-")) {
     const dateStr = challengeId.slice("daily-".length);
     // Reject malformed dates and prevent probing future answers or generating
     // arbitrarily distant schedules through the public guess/hint endpoints.
     if (!isDailyDate(dateStr) || dateStr > todayUTC()) return null;
-    return getEntryForDate(dateStr);
+    return await getEntryForDate(dateStr);
   }
   return THEME_CATALOG.find((t) => t.id === challengeId) ?? null;
 }

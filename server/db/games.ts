@@ -24,7 +24,7 @@ export async function submitSavedGuess(
   userId: number,
   input: { challengeId: string; word: string; requestId: string }
 ) {
-  const evaluated = validatedGuess(input.challengeId, input.word);
+  const evaluated = await validatedGuess(input.challengeId, input.word);
   const db = await requireDb();
   return db.transaction(async tx => {
     await lockUser(tx, userId);
@@ -50,7 +50,7 @@ export async function submitSavedGuess(
           ? "Este desafio já foi concluído."
           : "Recomece a partida antes de enviar outro palpite.",
       });
-    const next = appendGuess(
+    const next = await appendGuess(
       previous,
       input.challengeId,
       input.word,
@@ -93,7 +93,7 @@ export async function submitSavedGuess(
 }
 
 export async function giveUpGame(userId: number, challengeId: string) {
-  if (!getEntryForChallenge(challengeId))
+  if (!(await getEntryForChallenge(challengeId)))
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Desafio não encontrado.",
@@ -164,5 +164,75 @@ export async function retryGame(userId: number, challengeId: string) {
       .set(values)
       .where(eq(gameSessions.id, row.id));
     return { ...row, ...values };
+  });
+}
+
+export async function useCloseHint(userId: number, challengeId: string, requestId: string) {
+  const entry = await getEntryForChallenge(challengeId);
+  if (!entry) throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado." });
+
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    await lockUser(tx, userId);
+    const [session] = await tx
+      .select()
+      .from(gameSessions)
+      .where(and(eq(gameSessions.userId, userId), eq(gameSessions.challengeId, challengeId)))
+      .orderBy(desc(gameSessions.solved), desc(gameSessions.id))
+      .limit(1);
+
+    if (session?.solved || session?.lost) {
+      throw new TRPCError({ code: "CONFLICT", message: "Este desafio já foi encerrado." });
+    }
+
+    const previous = readGuesses(session?.progressJson ?? null);
+    if (previous.some(g => g.requestId === requestId)) {
+      return { duplicate: true, guesses: previous, hintPenalty: session?.hintPenalty ?? 0, word: "" };
+    }
+
+    // Encontra uma palavra viável (rank entre 5 e 50)
+    const aliasesArray = Object.entries(entry.aliases)
+      .filter(([_, rank]) => rank >= 5 && rank <= 50)
+      .sort((a, b) => a[1] - b[1]);
+
+    // Filtrar as que o usuário já tentou
+    const available = aliasesArray.filter(([word]) => !previous.some(g => g.word === word));
+
+    if (available.length === 0) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Não há mais dicas disponíveis para este desafio." });
+    }
+
+    // Pega a mais próxima que ainda não foi tentada (limitando entre as 3 mais viáveis)
+    const target = available[Math.floor(Math.random() * Math.min(3, available.length))][0];
+    const result = await validatedGuess(challengeId, target);
+
+    const nextGuesses = [{ ...result, requestId }, ...previous];
+    const newPenalty = (session?.hintPenalty ?? 0) + 10;
+    const totalGuesses = session ? session.totalGuesses + 1 : 1;
+
+    if (session) {
+      await tx
+        .update(gameSessions)
+        .set({
+          progressJson: JSON.stringify(nextGuesses),
+          guesses: nextGuesses.length,
+          bestRank: Math.min(...nextGuesses.map(g => g.rank)),
+          hintPenalty: newPenalty,
+          totalGuesses,
+        })
+        .where(eq(gameSessions.id, session.id));
+    } else {
+      await tx.insert(gameSessions).values({
+        userId,
+        challengeId,
+        progressJson: JSON.stringify(nextGuesses),
+        guesses: 1,
+        bestRank: result.rank,
+        hintPenalty: newPenalty,
+        totalGuesses: 1,
+      });
+    }
+
+    return { duplicate: false, guesses: nextGuesses, hintPenalty: newPenalty, word: target };
   });
 }

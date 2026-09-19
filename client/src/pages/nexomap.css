@@ -42,25 +42,43 @@
   gap: 15px;
 }
 .nm-brand {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -1.8px;
+  font-family: "Outfit", "Space Grotesk", sans-serif;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   text-decoration: none;
-  color: var(--nm-ink);
+  color: #00f0ff;
+  text-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+}
+.nm-brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  transition: transform 0.2s ease;
+}
+.nm-brand:hover .nm-brand-logo {
+  transform: scale(1.06);
 }
 .nm-brand > span {
-  color: var(--nm-accent);
+  color: #00f0ff;
 }
 .nm-brand small {
   font-size: 13px;
   letter-spacing: 1px;
   font-weight: 500;
-  padding-left: 17px;
-  margin-left: 15px;
+  padding-left: 14px;
+  margin-left: 10px;
   border-left: 1px solid var(--nm-line);
+  color: var(--nm-sub);
+  text-transform: none;
+  text-shadow: none;
 }
 .nm-header-actions {
   display: flex;
@@ -1250,4 +1268,35 @@
     transition: none !important;
     animation: none !important;
   }
+}
+
+.nm-tabs.segmented {
+  background-color: var(--nm-panel-2);
+  border-radius: 12px;
+  padding: 4px;
+  display: inline-flex;
+  gap: 4px;
+  border-bottom: none;
+  margin-bottom: 24px;
+}
+
+.nm-tabs.segmented button {
+  background-color: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 24px;
+  font-weight: 500;
+  color: var(--nm-muted);
+  transition: all 0.2s ease-in-out;
+}
+
+.nm-tabs.segmented button:hover {
+  color: var(--nm-ink);
+}
+
+.nm-tabs.segmented button.active {
+  background-color: var(--nm-panel);
+  color: var(--nm-ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border-bottom: none;
 }

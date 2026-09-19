@@ -41,7 +41,7 @@ type Outputs = inferRouterOutputs<AppRouter>;
 export type MapData = Outputs["nexomap"]["me"];
 type Progress = NonNullable<MapData["progress"]>;
 type Achievement = Progress["achievements"][number];
-type Tab = "map" | "friends" | "badges" | "ranking";
+type Tab = "map" | "badges";
 const badgeIcons = {
   first: Sparkles,
   explorer: Compass,
@@ -95,7 +95,8 @@ export function MapShell({ children }: { children: React.ReactNode }) {
       <div className="nm-wrap">
         <header className="nm-header">
           <Link href="/" className="nm-brand">
-            nexo<span>•</span>
+            <img src="/nexo-logo.png" alt="Nexo" className="nm-brand-logo" />
+            <span>NEXO</span>
             <small>NexoMap</small>
           </Link>
           <div className="nm-header-actions">
@@ -108,7 +109,7 @@ export function MapShell({ children }: { children: React.ReactNode }) {
         {children}
         <footer className="nm-footer">
           <span>
-            nexo• <b>cada palavra, um novo caminho.</b>
+            <b>NEXO</b> · cada palavra, um novo caminho.
           </span>
           <span>Seu mapa cresce com você.</span>
         </footer>
@@ -116,7 +117,7 @@ export function MapShell({ children }: { children: React.ReactNode }) {
     </main>
   );
 }
-function Empty({
+export function Empty({
   title,
   children,
 }: {
@@ -160,15 +161,12 @@ export default function NexoMap({
   const data = query.data;
   const progress = data?.progress;
   const owner = Boolean(data?.owner);
-  const ownOnly = tab === "friends" || tab === "ranking";
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab, userId]);
   const tabs = [
     { id: "map", label: "Meu mapa", Icon: Map },
-    { id: "friends", label: "Amigos", Icon: Users },
     { id: "badges", label: "Emblemas", Icon: Medal },
-    { id: "ranking", label: "Ranking", Icon: Trophy },
   ] as const;
   return (
     <MapShell>
@@ -308,7 +306,7 @@ export default function NexoMap({
           ) : (
             data && (
               <>
-                <nav className="nm-tabs" aria-label="Seções do NexoMap">
+                <nav className="nm-tabs segmented" aria-label="Seções do NexoMap">
                   {tabs
                     .filter(t => !userId || t.id === "map" || t.id === "badges")
                     .map(({ id, label, Icon }) => (
@@ -316,16 +314,14 @@ export default function NexoMap({
                         key={id}
                         className={tab === id ? "active" : ""}
                         aria-current={tab === id ? "page" : undefined}
-                        onClick={() => setTab(id)}
+                        onClick={() => setTab(id as Tab)}
                       >
                         <Icon size={17} />
                         {userId && id === "map" ? "Jornada" : label}
                       </button>
                     ))}
                 </nav>
-                {tab === "friends" && <FriendsPanel />}
-                {tab === "ranking" && <RankingPanel />}
-                {progress && !ownOnly && (
+                {progress && (
                   <>
                     <div className="nm-stats">
                       {[
@@ -554,322 +550,5 @@ export default function NexoMap({
         </DialogContent>
       </Dialog>
     </MapShell>
-  );
-}
-
-function FriendsPanel() {
-  const utils = trpc.useUtils();
-  const graph = trpc.nexomap.connections.useQuery();
-  const feed = trpc.nexomap.feed.useQuery();
-  const [search, setSearch] = useState("");
-  const [term, setTerm] = useState("");
-  useEffect(() => {
-    const timer = window.setTimeout(() => setTerm(search.trim()), 350);
-    return () => clearTimeout(timer);
-  }, [search]);
-  const found = trpc.nexomap.search.useQuery(
-    { query: term },
-    { enabled: term.length >= 2, retry: false }
-  );
-  const action = trpc.nexomap.connect.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.nexomap.connections.invalidate(),
-        utils.nexomap.feed.invalidate(),
-        utils.nexomap.profile.invalidate(),
-        utils.nexomap.ranking.invalidate(),
-        utils.nexomap.search.invalidate(),
-      ]);
-    },
-  });
-  const change = (
-    id: number,
-    kind: "request" | "accept" | "remove" | "block" | "unblock"
-  ) => action.mutate({ userId: id, action: kind });
-  const people = graph.data;
-  return (
-    <div className="nm-social-grid">
-      <section>
-        <div className="nm-section-head">
-          <div>
-            <span className="nm-eyebrow">MELHOR EM BOA COMPANHIA</span>
-            <h2>Sua turma no mapa</h2>
-          </div>
-          <Users size={24} />
-        </div>
-        <label className="nm-search">
-          <Search size={18} />
-          <input
-            maxLength={60}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou @usuário"
-            aria-label="Buscar jogadores"
-          />
-        </label>
-        <Feedback error={graph.error} retry={() => graph.refetch()} />
-        <Feedback error={action.error} />
-        {term.length >= 2 && (
-          <section className="nm-panel">
-            <h3>Jogadores encontrados</h3>
-            <Feedback error={found.error} />
-            {found.isFetching && <p role="status">Buscando…</p>}
-            {found.data?.length === 0 && <p>Nenhum jogador encontrado.</p>}
-            {found.data?.map(p => {
-              const connected = people?.friends.some(f => f.id === p.id);
-              const incoming = people?.incoming.some(f => f.id === p.id);
-              const pending = people?.outgoing.some(f => f.id === p.id);
-              return (
-                <div className="nm-person" key={p.id}>
-                  <Link href={"/nexomap/" + p.id}>
-                    <Avatar person={p} />
-                    <span>
-                      <strong>{p.name}</strong>
-                      <small>@{p.username}</small>
-                    </span>
-                  </Link>
-                  <button
-                    className="nm-button subtle"
-                    disabled={action.isPending || connected || pending}
-                    onClick={() =>
-                      change(p.id, incoming ? "accept" : "request")
-                    }
-                  >
-                    <UserPlus size={14} />
-                    {connected
-                      ? "Amigos"
-                      : pending
-                        ? "Enviado"
-                        : incoming
-                          ? "Aceitar"
-                          : "Adicionar"}
-                  </button>
-                </div>
-              );
-            })}
-          </section>
-        )}
-        {graph.isLoading && <p role="status">Carregando amizades…</p>}
-        {people && (
-          <>
-            <section className="nm-panel">
-              <h3>
-                Amigos{" "}
-                <span className="nm-counter">{people.friends.length}</span>
-              </h3>
-              {!people.friends.length && (
-                <Empty title="Encontre sua turma">
-                  Busque alguém pelo @usuário para enviar seu primeiro convite.
-                </Empty>
-              )}
-              {people.friends.map(p => (
-                <div className="nm-person" key={p.id}>
-                  <Link href={"/nexomap/" + p.id}>
-                    <Avatar person={p} />
-                    <span>
-                      <strong>{p.name}</strong>
-                      <small>Visitar NexoMap →</small>
-                    </span>
-                  </Link>
-                  <div className="nm-person-actions">
-                    <button
-                      className="nm-link-button"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "remove")}
-                    >
-                      Remover
-                    </button>
-                    <button
-                      className="nm-link-button"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "block")}
-                    >
-                      Bloquear
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </section>
-            <section className="nm-panel">
-              <h3>Solicitações</h3>
-              {!people.incoming.length && !people.outgoing.length && (
-                <p className="nm-muted">Nenhuma solicitação pendente.</p>
-              )}
-              {people.incoming.map(p => (
-                <div className="nm-person" key={p.id}>
-                  <Link href={"/nexomap/" + p.id}>
-                    <Avatar person={p} />
-                    <strong>{p.name}</strong>
-                  </Link>
-                  <div className="nm-person-actions">
-                    <button
-                      className="nm-button primary"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "accept")}
-                    >
-                      Aceitar
-                    </button>
-                    <button
-                      className="nm-link-button"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "remove")}
-                    >
-                      Recusar
-                    </button>
-                    <button
-                      className="nm-link-button"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "block")}
-                    >
-                      Bloquear
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {people.outgoing.map(p => (
-                <div className="nm-person" key={p.id}>
-                  <span>
-                    <strong>{p.name}</strong>
-                    <small>Aguardando resposta</small>
-                  </span>
-                  <button
-                    className="nm-link-button"
-                    disabled={action.isPending}
-                    onClick={() => change(p.id, "remove")}
-                  >
-                    Cancelar pedido
-                  </button>
-                </div>
-              ))}
-            </section>
-            {!!people.blocked.length && (
-              <section className="nm-panel">
-                <h3>
-                  <Shield size={16} /> Pessoas bloqueadas
-                </h3>
-                {people.blocked.map(p => (
-                  <div className="nm-person" key={p.id}>
-                    <strong>{p.name}</strong>
-                    <button
-                      className="nm-link-button"
-                      disabled={action.isPending}
-                      onClick={() => change(p.id, "unblock")}
-                    >
-                      Desbloquear
-                    </button>
-                  </div>
-                ))}
-              </section>
-            )}
-          </>
-        )}
-      </section>
-      <aside className="nm-panel nm-feed">
-        <span className="nm-eyebrow">PASSOS RECENTES</span>
-        <h2>Novidades dos amigos</h2>
-        <p className="nm-muted">Conquistas compartilhadas, sem spoilers.</p>
-        <Feedback error={feed.error} retry={() => feed.refetch()} />
-        {feed.isLoading && <p role="status">Carregando novidades…</p>}
-        {feed.data?.length === 0 && (
-          <Empty title="Novos caminhos virão">
-            As próximas conquistas dos seus amigos aparecerão aqui, conforme a
-            privacidade de cada um.
-          </Empty>
-        )}
-        {feed.data?.map(event => (
-          <Link
-            className="nm-feed-item"
-            key={event.id}
-            href={"/nexomap/" + event.userId}
-          >
-            <span>
-              <Medal size={19} />
-            </span>
-            <div>
-              <p>
-                <strong>{event.name}</strong> {event.message}
-              </p>
-              <small>{new Date(event.at).toLocaleDateString("pt-BR")}</small>
-            </div>
-          </Link>
-        ))}
-      </aside>
-    </div>
-  );
-}
-
-function RankingPanel() {
-  const [scope, setScope] = useState<"global" | "friends">("friends");
-  const ranking = trpc.nexomap.ranking.useQuery({ scope });
-  return (
-    <section className="nm-panel">
-      <div className="nm-section-head">
-        <div>
-          <span className="nm-eyebrow">DESCUBRA JUNTO</span>
-          <h2>Ranking de descobertas</h2>
-        </div>
-        <div className="nm-toggle">
-          <button
-            aria-pressed={scope === "friends"}
-            onClick={() => setScope("friends")}
-          >
-            Amigos
-          </button>
-          <button
-            aria-pressed={scope === "global"}
-            onClick={() => setScope("global")}
-          >
-            Geral
-          </button>
-        </div>
-      </div>
-      <p className="nm-muted">
-        Total de desafios diferentes resolvidos. Empates seguem a ordem de
-        cadastro. O ranking geral inclui mapas públicos com participação
-        ativada.
-      </p>
-      <Feedback error={ranking.error} retry={() => ranking.refetch()} />
-      {ranking.isLoading && <p role="status">Carregando classificação…</p>}
-      {ranking.data && (
-        <>
-          <div className="nm-ranking-mine">
-            {ranking.data.mine
-              ? "Sua posição: #" +
-                ranking.data.mine.position +
-                " · " +
-                ranking.data.mine.solved +
-                " desafios resolvidos"
-              : "Você ainda não aparece nesta classificação. Resolva um desafio e confira a visibilidade do perfil."}
-          </div>
-          {!ranking.data.rows.length && (
-            <Empty title="Um lugar para sua primeira descoberta">
-              A classificação aparece quando há jogadores elegíveis com desafios
-              resolvidos.
-            </Empty>
-          )}
-          {ranking.data.rows.map(p => (
-            <Link
-              className="nm-ranking-row"
-              key={p.id}
-              href={"/nexomap/" + p.id}
-            >
-              <span className="nm-position">
-                {String(p.position).padStart(2, "0")}
-              </span>
-              <Avatar person={p} />
-              <span>
-                <strong>{p.name}</strong>
-                <small>@{p.username}</small>
-              </span>
-              <b>
-                {p.solved}
-                <small>resolvidos</small>
-              </b>
-              <ArrowRight size={16} />
-            </Link>
-          ))}
-        </>
-      )}
-    </section>
   );
 }

@@ -66,4 +66,36 @@ export function createDailySchedule(): (date: string) => WordEntry {
   };
 }
 
-export const getEntryForDate = createDailySchedule();
+export const getLegacyEntryForDate = createDailySchedule();
+
+import { getDb } from "../db/connection";
+import { nexoDailyChallenges } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
+
+export async function getEntryForDate(date: string): Promise<WordEntry> {
+  const db = await getDb();
+  if (db) {
+    try {
+      const rows = await db
+        .select()
+        .from(nexoDailyChallenges)
+        .where(eq(nexoDailyChallenges.date, date))
+        .limit(1);
+
+      if (rows.length > 0) {
+        const row = rows[0];
+        return {
+          word: row.word,
+          prompt: row.prompt,
+          category: row.category,
+          aliases: JSON.parse(row.aliasesJson),
+        };
+      }
+    } catch (e: any) {
+      console.error("[getEntryForDate] DB Query Error:", e.message, "Cause:", e.cause || e);
+    }
+  }
+
+  // Fallback to deterministic offline schedule if DB is unavailable or date not generated
+  return getLegacyEntryForDate(date);
+}
