@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { userFacingError } from "@/lib/userFacingError";
 import AppearanceSwitcher from "@/components/AppearanceSwitcher";
 import {
   Dialog,
@@ -78,9 +79,10 @@ export function Feedback({
   error: { message: string } | null;
   retry?: () => void;
 }) {
+  const message = userFacingError(error);
   return error ? (
     <div className="nm-feedback" role="alert">
-      {error.message}
+      {message}
       {retry && (
         <button className="nm-button subtle" onClick={retry}>
           Tentar novamente
@@ -89,6 +91,7 @@ export function Feedback({
     </div>
   ) : null;
 }
+
 export function MapShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="nm-shell">

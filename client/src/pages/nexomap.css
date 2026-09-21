@@ -860,6 +860,14 @@
   margin: 15px 0;
   font-size: 13px;
 }
+.nm-feedback.success {
+  border-color: rgba(65, 145, 113, 0.45);
+  background: rgba(65, 145, 113, 0.1);
+}
+.nm-feedback.error {
+  border-color: rgba(205, 91, 72, 0.45);
+  background: rgba(205, 91, 72, 0.1);
+}
 .nm-feedback a {
   color: var(--nm-accent);
   text-decoration: underline;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Medal, Search, Users, Eye, Sparkles, Heart } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { userFacingError } from "@/lib/userFacingError";
 import { Avatar, Empty, Feedback, MapShell } from "./NexoMap";
 import "./nexomap.css";
 
@@ -136,25 +137,44 @@ function CommunityFeed() {
 
 function FriendsPanel() {
   const [query, setQuery] = useState("");
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+  const utils = trpc.useUtils();
   const graph = trpc.nexomap.connections.useQuery();
   const found = trpc.nexomap.search.useQuery(
     { query },
     { enabled: query.length >= 2 }
   );
   const action = trpc.nexomap.connect.useMutation({
-    onSuccess: () => {
-      const utils = trpc.useUtils();
-      utils.nexomap.connections.invalidate();
-      utils.nexomap.feed.invalidate();
-      utils.nexomap.profile.invalidate();
-      utils.nexomap.ranking.invalidate();
-      utils.nexomap.search.invalidate();
+    onMutate: () => setNotice(null),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        utils.nexomap.connections.invalidate(),
+        utils.nexomap.feed.invalidate(),
+        utils.nexomap.profile.invalidate(),
+        utils.nexomap.ranking.invalidate(),
+        utils.nexomap.search.invalidate(),
+      ]);
+      const messages = {
+        request: "Solicitação de amizade enviada.",
+        accept: "Solicitação de amizade aceita.",
+        remove: "Conexão removida.",
+        block: "Jogador bloqueado.",
+        unblock: "Jogador desbloqueado.",
+      } as const;
+      setNotice({ tone: "success", message: messages[variables.action] });
     },
+    onError: (error) => setNotice({
+      tone: "error",
+      message: userFacingError(error, "Não foi possível atualizar sua lista de amigos. Tente novamente."),
+    }),
   });
 
   const people = graph.data;
-  const change = (id: number, type: "add" | "remove" | "block" | "unblock") => {
-    action.mutate({ userId: id, type });
+  const change = (
+    id: number,
+    connectionAction: "request" | "accept" | "remove" | "block" | "unblock",
+  ) => {
+    action.mutate({ userId: id, action: connectionAction });
   };
 
   return (
@@ -178,7 +198,12 @@ function FriendsPanel() {
         />
       </div>
 
-      <Feedback error={graph.error || found.error || action.error} retry={() => graph.refetch()} />
+      <Feedback error={graph.error || found.error} retry={() => graph.refetch()} />
+      {notice && (
+        <div className={`nm-feedback ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>
+          {notice.message}
+        </div>
+      )}
       {(graph.isLoading || found.isFetching) && <p role="status">Carregando...</p>}
 
       {query.length >= 2 && found.data && (
@@ -207,7 +232,7 @@ function FriendsPanel() {
                       ) : isFriend ? (
                         <button className="nm-button outline" disabled={action.isPending} onClick={() => change(p.id, "remove")} style={{ padding: "6px 12px", fontSize: "12px" }}>Remover</button>
                       ) : (
-                        <button className="nm-button primary" disabled={action.isPending} onClick={() => change(p.id, "add")} style={{ padding: "6px 12px", fontSize: "12px" }}>Adicionar</button>
+                        <button className="nm-button primary" disabled={action.isPending} onClick={() => change(p.id, "request")} style={{ padding: "6px 12px", fontSize: "12px" }}>Adicionar</button>
                       )}
                     </div>
                   </div>
