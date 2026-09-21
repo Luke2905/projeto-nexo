@@ -168,6 +168,17 @@ export const appRouter = router({
       return getThemesMeta();
     }),
 
+    /** Creates an independent free-play round at the chosen difficulty. */
+    getFree: publicProcedure
+      .input(z.object({
+        difficulty: z.enum(["easy", "medium", "hard"]),
+        nonce: z.string().min(1).max(40).regex(/^[a-zA-Z0-9-]+$/),
+      }))
+      .query(async ({ input }) => {
+        const { getFreeChallengeMeta } = await import("./game/freeMode");
+        return getFreeChallengeMeta(input.difficulty, input.nonce);
+      }),
+
     /**
      * Validates a guess word against the challenge answer on the server.
      * Returns rank, proximity and heat tag — never the answer itself.

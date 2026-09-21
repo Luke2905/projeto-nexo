@@ -329,6 +329,9 @@ input:focus-visible {
 .mode-button:nth-child(2) svg {
   color: #f6c85f;
 }
+.mode-button:nth-child(3) svg {
+  color: #75d2ff;
+}
 .mode-button span {
   display: grid;
   gap: 3px;
@@ -1606,7 +1609,7 @@ body {
   }
   .mobile-mode-tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     padding: 4px;
     border: 1px solid rgba(117, 161, 241, 0.18);

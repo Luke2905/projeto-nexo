@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  Dices,
   Flame,
   History,
   Lightbulb,
@@ -36,7 +37,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useVisualTheme } from "@/contexts/VisualThemeContext";
 
-type Mode = "daily" | "themes";
+type Mode = "daily" | "themes" | "free";
+type Difficulty = "easy" | "medium" | "hard";
 
 type Guess = {
   word: string;
@@ -56,15 +58,26 @@ function accentClass(accent: string) {
   return `accent-${accent}`;
 }
 
+function newRoundNonce() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function Home() {
   const { visualTheme } = useVisualTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
+  const [mode, setMode] = useState<Mode>("daily");
 
   // ── Server queries ──────────────────────────────────────────────────────────
   const daily = trpc.challenges.getDaily.useQuery(undefined, { refetchInterval: 60_000 });
   const archive = trpc.challenges.getDailyArchive.useQuery(undefined, { refetchInterval: 60_000 });
   const themes = trpc.challenges.getThemes.useQuery();
+  const [freeDifficulty, setFreeDifficulty] = useState<Difficulty>("easy");
+  const [freeNonce, setFreeNonce] = useState(newRoundNonce);
+  const freeChallenge = trpc.challenges.getFree.useQuery(
+    { difficulty: freeDifficulty, nonce: freeNonce },
+    { enabled: mode === "free", staleTime: Infinity },
+  );
   const gameHistory = trpc.games.history.useQuery(undefined, { enabled: isAuthenticated, retry: false });
 
   // ── Mutations ───────────────────────────────────────────────────────────────
@@ -91,7 +104,6 @@ export default function Home() {
   });
 
   // ── Local UI state ──────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<Mode>("daily");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [guesses, setGuesses] = useState<Guess[]>([]);
@@ -131,6 +143,10 @@ export default function Home() {
     }
   }, [daily.data, activeId]);
 
+  useEffect(() => {
+    if (mode === "free" && freeChallenge.data) setActiveId(freeChallenge.data.challengeId);
+  }, [mode, freeChallenge.data]);
+
   // ── Derived state ───────────────────────────────────────────────────────────
   const allThemes = themes.data ?? [];
   const activeChallenge = useMemo(() => {
@@ -140,9 +156,14 @@ export default function Home() {
       const day = archiveDays.find(day => day.challengeId === activeId) ?? selectedDaily.data;
       return day ? { ...day, kind: "Diário" as const } : null;
     }
+    if (activeId.startsWith("free-")) {
+      return freeChallenge.data?.challengeId === activeId
+        ? { ...freeChallenge.data, kind: "Livre" as const }
+        : null;
+    }
     const theme = allThemes.find((t) => t.id === activeId);
     return theme ? { ...theme, challengeId: theme.id, kind: "Tema" as const } : null;
-  }, [activeId, daily.data, allThemes, archive.data, selectedDaily.data]);
+  }, [activeId, daily.data, allThemes, archive.data, selectedDaily.data, freeChallenge.data]);
 
   // Disabled queries retain cached results; only expose history for a session.
   const history = useMemo(
@@ -199,6 +220,13 @@ export default function Home() {
     if (switchingDisabled) return;
     setActiveId(id);
     setMode(kind === "Diário" ? "daily" : "themes");
+  }
+
+  function startFreeRound(difficulty: Difficulty) {
+    if (switchingDisabled) return;
+    setMode("free");
+    setFreeDifficulty(difficulty);
+    setFreeNonce(newRoundNonce());
   }
 
   async function submitGuess(event?: React.FormEvent) {
@@ -275,6 +303,11 @@ export default function Home() {
   }
 
   function resetGame() {
+    if (mode === "free") {
+      setFreeNonce(newRoundNonce());
+      setNotice("Nova palavra sorteada no modo livre.");
+      return;
+    }
     drafts.current.set(draftKey, []);
     setLatestWord(null);
     setCelebrating(false);
@@ -288,7 +321,7 @@ export default function Home() {
     ? new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(
       new Date(`${activeChallenge.challengeId.replace("daily-", "")}T12:00:00Z`),
     )
-    : "…";
+    : activeChallenge?.kind === "Livre" ? `nível ${freeDifficulty === "easy" ? "fácil" : freeDifficulty === "medium" ? "médio" : "difícil"}` : "…";
 
   const dailyLabel = daily.data?.label ?? "hoje";
   const challengeAccent = activeChallenge?.accent ?? "coral";
@@ -339,6 +372,9 @@ export default function Home() {
             <button className={mode === "themes" ? "mobile-tab active" : "mobile-tab"} onClick={() => setMode("themes")}>
               <Sparkles size={14} /> temas
             </button>
+            <button className={mode === "free" ? "mobile-tab active" : "mobile-tab"} onClick={() => startFreeRound(freeDifficulty)}>
+              <Dices size={14} /> livre
+            </button>
           </div>
           {mode === "themes" ? (
             <div className="mobile-theme-scroll">
@@ -349,6 +385,18 @@ export default function Home() {
                   onClick={() => selectChallenge(theme.id, "Tema")}
                 >
                   <span />{theme.label}
+                </button>
+              ))}
+            </div>
+          ) : mode === "free" ? (
+            <div className="mobile-theme-scroll" aria-label="Dificuldade do modo livre">
+              {(["easy", "medium", "hard"] as Difficulty[]).map(difficulty => (
+                <button
+                  className={freeDifficulty === difficulty ? "mobile-theme-chip active coral" : "mobile-theme-chip coral"}
+                  key={difficulty}
+                  onClick={() => startFreeRound(difficulty)}
+                >
+                  <span />{difficulty === "easy" ? "Fácil" : difficulty === "medium" ? "Médio" : "Difícil"}
                 </button>
               ))}
             </div>
@@ -396,9 +444,14 @@ export default function Home() {
                 <span><b>Temas</b><small>jogue do seu jeito</small></span>
                 {mode === "themes" && <ChevronRight size={16} className="mode-chevron" />}
               </button>
+              <button className={mode === "free" ? "mode-button active" : "mode-button"} onClick={() => startFreeRound(freeDifficulty)}>
+                <Dices size={17} />
+                <span><b>Modo livre</b><small>escolha a dificuldade</small></span>
+                {mode === "free" && <ChevronRight size={16} className="mode-chevron" />}
+              </button>
             </nav>
 
-            <div className="rail-section-label">{mode === "daily" ? "arquivo diário" : "explore por tema"}</div>
+            <div className="rail-section-label">{mode === "daily" ? "arquivo diário" : mode === "themes" ? "explore por tema" : "nível da palavra"}</div>
             <div className="challenge-list">
               {mode === "daily" ? (
                 <>
@@ -416,7 +469,7 @@ export default function Home() {
                   )}
                   {renderCalendar()}
                 </>
-              ) : (
+              ) : mode === "themes" ? (
                 allThemes.map((theme) => (
                   <button
                     className={activeId === theme.id ? "challenge-row selected" : "challenge-row"}
@@ -426,6 +479,21 @@ export default function Home() {
                     <span className={`challenge-icon ${theme.accent}`}><Sparkles size={14} /></span>
                     <span className="challenge-copy"><b>{theme.label}</b><small>{theme.description}</small></span>
                     {activeId === theme.id && <ChevronRight size={15} className="row-check" />}
+                  </button>
+                ))
+              ) : (
+                (["easy", "medium", "hard"] as Difficulty[]).map((difficulty, index) => (
+                  <button
+                    className={freeDifficulty === difficulty ? "challenge-row selected" : "challenge-row"}
+                    key={difficulty}
+                    onClick={() => startFreeRound(difficulty)}
+                  >
+                    <span className={`challenge-icon ${["mint", "gold", "coral"][index]}`}><Dices size={14} /></span>
+                    <span className="challenge-copy">
+                      <b>{difficulty === "easy" ? "Fácil" : difficulty === "medium" ? "Médio" : "Difícil"}</b>
+                      <small>{difficulty === "easy" ? "palavras mais comuns" : difficulty === "medium" ? "vocabulário variado" : "palavras menos usuais"}</small>
+                    </span>
+                    {freeDifficulty === difficulty && <ChevronRight size={15} className="row-check" />}
                   </button>
                 ))
               )}
@@ -444,7 +512,7 @@ export default function Home() {
                 {activeChallenge?.kind === "Diário" ? "desafio diário" : activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}
               </span>
               <span className="date-label">
-                {activeChallenge?.kind === "Diário" ? displayDate : "mapa temático"}
+                {activeChallenge?.kind === "Diário" ? displayDate : activeChallenge?.kind === "Livre" ? displayDate : "mapa temático"}
               </span>
             </div>
 
@@ -455,7 +523,7 @@ export default function Home() {
               <div className="game-card-head">
                 <div>
                   <p className="card-kicker">{visualTheme === "cartoon" && <Target size={13} />}encontre a palavra</p>
-                  <h1>{activeChallenge?.kind === "Diário" ? activeId === daily.data?.challengeId ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge.label.split(" · ")[0]}?` : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
+                  <h1>{activeChallenge?.kind === "Diário" ? activeId === daily.data?.challengeId ? "Qual é a palavra de hoje?" : `Qual é a palavra de ${activeChallenge.label.split(" · ")[0]}?` : activeChallenge?.kind === "Livre" ? "Qual é a palavra desta rodada?" : `Qual é a palavra de ${activeChallenge?.label?.toLocaleLowerCase("pt-BR") ?? "…"}?`}</h1>
                 </div>
                 <div className="flex flex-col items-end gap-3">
                   <div className="attempt-badge"><span>tentativas</span><strong key={guesses.length}>{guesses.length.toString().padStart(2, "0")}</strong></div>

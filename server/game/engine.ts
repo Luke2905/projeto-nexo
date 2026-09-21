@@ -7,6 +7,8 @@
 import { normalizeWord as normalize } from "../../shared/words";
 import { CATEGORY_HINTS, THEME_CATALOG, type WordEntry } from "./dictionary";
 import { dayIndexForDate, getEntryForDate, isDailyDate } from "./dailySchedule";
+import { semanticGraphRank } from "./semanticGraph";
+import { getFreeEntry } from "./freeMode";
 export { dayIndexForDate, getEntryForDate } from "./dailySchedule";
 
 /**
@@ -20,21 +22,6 @@ export { normalizeWord as normalize } from "../../shared/words";
  */
 export function isSingleWord(value: string): boolean {
   return /^[a-z]+$/i.test(normalize(value));
-}
-
-/**
- * Deterministically returns a proximity rank for a word against an answer,
- * used as a fallback when the word isn't in the known aliases map.
- */
-function fallbackRank(word: string, answer: string): number {
-  const cleanWord = normalize(word);
-  const cleanAnswer = normalize(answer);
-  const shared = Array.from(new Set(cleanWord)).filter((char) => cleanAnswer.includes(char)).length;
-  const seed = Array.from(cleanWord).reduce(
-    (sum, char, index) => sum + char.charCodeAt(0) * (index + 3),
-    0,
-  );
-  return Math.min(99, Math.max(17, 58 - shared * 6 - (seed % 17)));
 }
 
 /**
@@ -56,7 +43,7 @@ export function evaluateGuess(
     ([alias]) => normalize(alias) === clean,
   )?.[1];
 
-  const rank = knownRank ?? fallbackRank(clean, entry.word);
+  const rank = knownRank ?? semanticGraphRank(clean, entry);
   const proximity = Math.max(6, Math.round(100 - rank * 2.65));
   const tag =
     rank <= 5 ? "muito quente" : rank <= 15 ? "no caminho" : "mais distante";
@@ -144,7 +131,7 @@ export async function getHintForChallenge(challengeId: string): Promise<string> 
   const entry = await getEntryForChallenge(challengeId);
 
   if (!entry) return "A resposta aparece quando duas ideias começam a se aproximar.";
-  return CATEGORY_HINTS[entry.category] ?? "A resposta aparece quando duas ideias começam a se aproximar.";
+  return entry.prompt || CATEGORY_HINTS[entry.category] || "A resposta aparece quando duas ideias começam a se aproximar.";
 }
 
 /**
@@ -159,5 +146,6 @@ export async function getEntryForChallenge(challengeId: string): Promise<WordEnt
     if (!isDailyDate(dateStr) || dateStr > todayUTC()) return null;
     return await getEntryForDate(dateStr);
   }
+  if (challengeId.startsWith("free-")) return getFreeEntry(challengeId);
   return THEME_CATALOG.find((t) => t.id === challengeId) ?? null;
 }

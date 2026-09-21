@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeWord } from "../../shared/words";
 import { WORD_CATALOG, THEME_CATALOG, CATEGORY_HINTS } from "./dictionary";
 import { DAILY_CATALOG_V2 } from "./dailyCatalogV2";
+import { DAILY_CATALOG_V3, FREE_CATALOGS } from "./dailyCatalogV3";
 import {
-  createDailySchedule, DAILY_REPEAT_COOLDOWN, DAILY_V2_START,
+  createDailySchedule, DAILY_REPEAT_COOLDOWN, DAILY_V2_START, DAILY_V3_START,
   dayIndexForDate, isDailyDate,
 } from "./dailySchedule";
 import { getEntryForChallenge, getEntryForDate, getHintForChallenge } from "./engine";
@@ -11,7 +12,7 @@ import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
 const DAY_MS = 86_400_000;
-const start = Date.parse(`${DAILY_V2_START}T00:00:00Z`);
+const start = Date.parse(`${DAILY_V3_START}T00:00:00Z`);
 const dateAt = (offset: number) => new Date(start + offset * DAY_MS).toISOString().slice(0, 10);
 const caller = appRouter.createCaller({
   user: null,
@@ -22,12 +23,16 @@ const caller = appRouter.createCaller({
 afterEach(() => vi.useRealTimers());
 
 describe("versioned daily word selection", () => {
-  it("has 300 distinct answers and preserves the frozen legacy catalog", () => {
+  it("has 360 distinct answers, unique clues and preserves the frozen catalogs", () => {
     expect(WORD_CATALOG).toHaveLength(50);
     expect(DAILY_CATALOG_V2).toHaveLength(300);
     expect(new Set(DAILY_CATALOG_V2.map(entry => normalizeWord(entry.word))).size).toBe(300);
     expect(DAILY_CATALOG_V2.length).toBeGreaterThan(DAILY_REPEAT_COOLDOWN);
-    for (const entry of DAILY_CATALOG_V2) {
+    expect(DAILY_CATALOG_V3).toHaveLength(360);
+    expect(new Set(DAILY_CATALOG_V3.map(entry => normalizeWord(entry.word))).size).toBe(360);
+    expect(new Set(DAILY_CATALOG_V3.map(entry => entry.prompt)).size).toBe(360);
+    expect(Object.values(FREE_CATALOGS).every(catalog => catalog.length > 0)).toBe(true);
+    for (const entry of DAILY_CATALOG_V3) {
       expect(CATEGORY_HINTS[entry.category]).toBeTruthy();
       expect(entry.aliases[entry.word]).toBe(1);
       expect(Object.keys(entry.aliases).length).toBeGreaterThanOrEqual(5);
@@ -55,10 +60,10 @@ describe("versioned daily word selection", () => {
       }
       lastSeen.set(word, day);
     }
-    const catalog = DAILY_CATALOG_V2.map(entry => entry.word).sort();
+    const catalog = DAILY_CATALOG_V3.map(entry => entry.word).sort();
     let previousOrder: string[] = [];
     for (let cycle = 0; cycle < 20; cycle++) {
-      const order = Array.from({ length: 300 }, (_, day) => schedule(dateAt(cycle * 300 + day)).word);
+      const order = Array.from({ length: 360 }, (_, day) => schedule(dateAt(cycle * 360 + day)).word);
       expect([...order].sort()).toEqual(catalog);
       expect(order).not.toEqual(previousOrder);
       previousOrder = order;
@@ -80,7 +85,7 @@ describe("versioned daily word selection", () => {
     expect([
       "2026-09-19", "2026-09-20", "2027-04-07", "2027-04-08", "2028-02-29",
     ].map(date => schedule(date).word)).toEqual([
-      "rua", "avião", "violino", "escola", "horizonte",
+      "rua", "avião", "mesa", "ecossistema", "abacate",
     ]);
   });
 
@@ -113,14 +118,15 @@ describe("daily challenge API", () => {
       await expect(caller.challenges.submitGuess({ challengeId: day.challengeId, word: entry.word }))
         .resolves.toMatchObject({ rank: 1, solved: true });
     }
-    expect(new Set(archive.challenges.map(day => getEntryForChallenge(day.challengeId)?.word)).size).toBe(18);
+    const entries = await Promise.all(archive.challenges.map(day => getEntryForChallenge(day.challengeId)));
+    expect(new Set(entries.map(entry => entry?.word)).size).toBe(18);
     await expect(caller.challenges.getDaily({ date: "2026-09-19" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(caller.challenges.getDaily({ date: "2026-02-30" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it.each([
     ["2026-09-30", 30], ["2026-10-01", 1], ["2027-02-28", 28], ["2028-02-29", 29], ["2028-03-01", 1],
-  ])("uses server UTC month boundaries on %s", async (date, count) => {
+  ])("uses the Brazil-local month boundaries on %s", async (date, count) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(`${date}T23:59:59.999Z`));
     const archive = await caller.challenges.getDailyArchive();
@@ -130,20 +136,20 @@ describe("daily challenge API", () => {
     expect(archive.challenges.every(day => day.challengeId.slice(6) <= date)).toBe(true);
   });
 
-  it("switches only at UTC midnight and returns metadata without answer data", async () => {
+  it("switches at midnight in São Paulo and returns metadata without answer data", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-18T23:59:59.999Z"));
+    vi.setSystemTime(new Date("2026-09-19T02:59:59.999Z"));
     const before = await caller.challenges.getDaily();
     expect(before.challengeId).toBe("daily-2026-09-18");
-    expect(getEntryForChallenge(before.challengeId)?.word).toBe("chuva");
-    vi.setSystemTime(new Date("2026-09-19T00:00:00Z"));
+    expect((await getEntryForChallenge(before.challengeId))?.word).toBe("chuva");
+    vi.setSystemTime(new Date("2026-09-19T03:00:00Z"));
     const after = await caller.challenges.getDaily();
     expect(after.challengeId).toBe("daily-2026-09-19");
     expect(Object.keys(after).sort()).toEqual(["accent", "category", "challengeId", "label", "prompt"]);
     expect(after.label).toContain(`#${dayIndexForDate("2026-09-19") + 1}`);
     expect(await caller.challenges.getDaily()).toEqual(after);
-    const entry = getEntryForDate("2026-09-19");
-    expect(getHintForChallenge(after.challengeId)).toBe(CATEGORY_HINTS[entry.category]);
+    const entry = await getEntryForDate("2026-09-19");
+    expect(await getHintForChallenge(after.challengeId)).toBe(entry.prompt);
     await expect(caller.challenges.submitGuess({ challengeId: after.challengeId, word: entry.word }))
       .resolves.toMatchObject({ rank: 1, proximity: 100, solved: true });
     const [alias, rank] = Object.entries(entry.aliases).find(([, value]) => value === 5)!;
@@ -155,12 +161,12 @@ describe("daily challenge API", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-19T12:00:00Z"));
     for (const challengeId of ["daily-2026-09-20", "daily-9999-12-31", "daily-2026-02-30", "daily-invalid", "daily-"]) {
-      expect(getEntryForChallenge(challengeId)).toBeNull();
-      expect(getHintForChallenge(challengeId)).toBe(getHintForChallenge("nonexistent"));
+      expect(await getEntryForChallenge(challengeId)).toBeNull();
+      expect(await getHintForChallenge(challengeId)).toBe(await getHintForChallenge("nonexistent"));
       await expect(caller.challenges.submitGuess({ challengeId, word: "casa" }))
         .rejects.toMatchObject({ code: "NOT_FOUND" });
     }
-    expect(getEntryForChallenge("daily-2024-01-01")?.word).toBe("farol");
-    for (const theme of THEME_CATALOG) expect(getEntryForChallenge(theme.id)).toBe(theme);
+    expect((await getEntryForChallenge("daily-2024-01-01"))?.word).toBe("farol");
+    for (const theme of THEME_CATALOG) expect(await getEntryForChallenge(theme.id)).toBe(theme);
   });
 });

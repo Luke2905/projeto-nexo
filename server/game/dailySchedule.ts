@@ -1,16 +1,18 @@
 import { createHash } from "node:crypto";
 import { normalizeWord } from "../../shared/words";
-import { WORD_CATALOG, type WordEntry } from "./dictionary";
+import { CATEGORY_HINTS, WORD_CATALOG, type WordEntry } from "./dictionary";
 import { DAILY_CATALOG_V2 } from "./dailyCatalogV2";
+import { DAILY_CATALOG_V3 } from "./dailyCatalogV3";
 
 const DAY_MS = 86_400_000;
 const EPOCH_MS = Date.parse("2024-01-01T00:00:00Z");
 export const DAILY_V2_START = "2026-09-19";
+export const DAILY_V3_START = "2026-09-22";
 export const DAILY_REPEAT_COOLDOWN = 180;
-const START_MS = Date.parse(`${DAILY_V2_START}T00:00:00Z`);
 // Never change the seed, start date, catalog or selection algorithm of a released
 // version. Add a new dated version instead, preserving historical schedules.
-const SEED = "nexo-daily-v2/2026-09-19";
+const V2_SEED = "nexo-daily-v2/2026-09-19";
+const V3_SEED = "nexo-daily-v3/2026-09-22";
 
 export function isDailyDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -28,21 +30,27 @@ function legacyEntry(timestamp: number): WordEntry {
   return WORD_CATALOG[((day % WORD_CATALOG.length) + WORD_CATALOG.length) % WORD_CATALOG.length];
 }
 
-/** Independent instances reconstruct exactly the same schedule, including on
- * serverless cold starts. The cache only saves computation; it is not state. */
-export function createDailySchedule(): (date: string) => WordEntry {
+function createCatalogSchedule(
+  catalog: readonly WordEntry[],
+  startDate: string,
+  seed: string,
+  previousEntry: (date: string) => WordEntry,
+): (date: string) => WordEntry {
+  const startMs = Date.parse(`${startDate}T00:00:00Z`);
   const scheduled: WordEntry[] = [];
   // Keep duplicates here: removing an old occurrence must not remove a newer one.
   const recent = Array.from({ length: DAILY_REPEAT_COOLDOWN }, (_, index) =>
-    normalizeWord(legacyEntry(START_MS - (DAILY_REPEAT_COOLDOWN - index) * DAY_MS).word),
+    normalizeWord(previousEntry(
+      new Date(startMs - (DAILY_REPEAT_COOLDOWN - index) * DAY_MS).toISOString().slice(0, 10),
+    ).word),
   );
 
   function appendCycle() {
-    const cycle = scheduled.length / DAILY_CATALOG_V2.length;
-    const remaining = DAILY_CATALOG_V2.map(entry => ({
+    const cycle = scheduled.length / catalog.length;
+    const remaining = catalog.map(entry => ({
       entry,
       word: normalizeWord(entry.word),
-      key: createHash("sha256").update(`${SEED}/${cycle}/${normalizeWord(entry.word)}`).digest("hex"),
+      key: createHash("sha256").update(`${seed}/${cycle}/${normalizeWord(entry.word)}`).digest("hex"),
     })).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : a.word < b.word ? -1 : 1);
 
     while (remaining.length) {
@@ -59,14 +67,56 @@ export function createDailySchedule(): (date: string) => WordEntry {
   return date => {
     if (!isDailyDate(date)) throw new RangeError("Invalid daily challenge date");
     const timestamp = Date.parse(`${date}T00:00:00Z`);
-    if (timestamp < START_MS) return legacyEntry(timestamp);
-    const offset = (timestamp - START_MS) / DAY_MS;
+    if (timestamp < startMs) return previousEntry(date);
+    const offset = (timestamp - startMs) / DAY_MS;
     while (scheduled.length <= offset) appendCycle();
     return scheduled[offset];
   };
 }
 
-export const getLegacyEntryForDate = createDailySchedule();
+/** Independent instances reconstruct exactly the same schedule, including on
+ * serverless cold starts. The cache only saves computation; it is not state. */
+export function createDailySchedule(): (date: string) => WordEntry {
+  const legacy = (date: string) => legacyEntry(Date.parse(`${date}T00:00:00Z`));
+  const v2 = createCatalogSchedule(DAILY_CATALOG_V2, DAILY_V2_START, V2_SEED, legacy);
+  return createCatalogSchedule(DAILY_CATALOG_V3, DAILY_V3_START, V3_SEED, v2);
+}
+
+/** Canonical schedule. Database rows are snapshots of this schedule, not a
+ * second word-selection mechanism. */
+export const getScheduledEntryForDate = createDailySchedule();
+// Kept for callers that still use the old name.
+export const getLegacyEntryForDate = getScheduledEntryForDate;
+
+function parseStoredEntry(row: typeof nexoDailyChallenges.$inferSelect): WordEntry {
+  const aliases: unknown = JSON.parse(row.aliasesJson);
+  if (
+    !row.word.trim() ||
+    !row.prompt.trim() ||
+    !(row.category in CATEGORY_HINTS) ||
+    typeof aliases !== "object" ||
+    aliases === null ||
+    Array.isArray(aliases)
+  ) {
+    throw new Error("invalid stored challenge fields");
+  }
+
+  const entries = Object.entries(aliases);
+  if (
+    entries.length < 2 ||
+    entries.some(([term, rank]) => !term.trim() || !Number.isInteger(rank) || Number(rank) < 1 || Number(rank) > 99) ||
+    !entries.some(([term, rank]) => normalizeWord(term) === normalizeWord(row.word) && rank === 1)
+  ) {
+    throw new Error("invalid stored semantic map");
+  }
+
+  return {
+    word: row.word,
+    prompt: row.prompt,
+    category: row.category as WordEntry["category"],
+    aliases: Object.fromEntries(entries) as Record<string, number>,
+  };
+}
 
 import { getDb } from "../db/connection";
 import { nexoDailyChallenges } from "../../drizzle/schema";
@@ -83,19 +133,13 @@ export async function getEntryForDate(date: string): Promise<WordEntry> {
         .limit(1);
 
       if (rows.length > 0) {
-        const row = rows[0];
-        return {
-          word: row.word,
-          prompt: row.prompt,
-          category: row.category,
-          aliases: JSON.parse(row.aliasesJson),
-        };
+        return parseStoredEntry(rows[0]);
       }
     } catch (e: any) {
       console.error("[getEntryForDate] DB Query Error:", e.message, "Cause:", e.cause || e);
     }
   }
 
-  // Fallback to deterministic offline schedule if DB is unavailable or date not generated
-  return getLegacyEntryForDate(date);
+  // Missing or invalid snapshots never trigger an external API or AI request.
+  return getScheduledEntryForDate(date);
 }

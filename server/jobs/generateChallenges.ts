@@ -1,172 +1,118 @@
-import { getDb } from "../db/connection";
+import { asc } from "drizzle-orm";
 import { nexoDailyChallenges } from "../../drizzle/schema";
-import { desc, sql } from "drizzle-orm";
-import { ENV } from "../_core/env";
+import { normalizeWord } from "../../shared/words";
+import { getDb } from "../db/connection";
+import {
+  DAILY_REPEAT_COOLDOWN,
+  getScheduledEntryForDate,
+} from "../game/dailySchedule";
+import { todayUTC } from "../game/engine";
 
-import { THEME_CATALOG } from "../game/dictionary";
+const DAY_MS = 86_400_000;
+export const DEFAULT_CHALLENGE_BUFFER_DAYS = 30;
 
-const CATEGORIES = ["lugares", "casa", "espaço", "natureza", "objetos", "aventura", "cultura", "fantasia", "comidas", "filmes", "anime", "ideias", "arte"];
-const THEME_WORDS = THEME_CATALOG.map(t => t.word.toLowerCase());
-
-// Simple sleep to avoid rate limits (15 RPM free tier)
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-function getNextDate(dateStr: string): string {
-  // Parsed as UTC noon to safely avoid local DST shifts
-  const date = new Date(`${dateStr}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
+function shiftDate(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
 }
 
-function getTodayUTC(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+export type PlannedChallenge = {
+  date: string;
+  word: string;
+  prompt: string;
+  category: string;
+  aliasesJson: string;
+};
+
+/** Builds database snapshots from the versioned local catalog. */
+export function planChallenges(startDate: string, days: number): PlannedChallenge[] {
+  if (!Number.isInteger(days) || days < 1) throw new RangeError("days must be a positive integer");
+  return Array.from({ length: days }, (_, offset) => {
+    const date = shiftDate(startDate, offset);
+    const entry = getScheduledEntryForDate(date);
+    return {
+      date,
+      word: entry.word,
+      prompt: entry.prompt,
+      category: entry.category,
+      aliasesJson: JSON.stringify(entry.aliases),
+    };
+  });
 }
 
-async function fetchRandomWords(count: number): Promise<string[]> {
-  try {
-    const res = await fetch(`https://random-word-api.herokuapp.com/word?lang=pt-br&number=${count}`);
-    if (!res.ok) throw new Error("Failed to fetch words");
-    return await res.json();
-  } catch (err) {
-    console.error("Error fetching random words:", err);
-    return [];
-  }
-}
-
-async function generateChallengeForWord(word: string): Promise<any> {
-  const apiKey = process.env.API_KEY_GOOGLE_IA;
-  if (!apiKey) throw new Error("API_KEY_GOOGLE_IA not found in environment variables");
-
-  const promptText = `Você é a IA por trás de um jogo de dedução semântica de palavras (estilo Contexto).
-Para a palavra alvo: "${word}"
-
-Por favor, forneça um JSON válido com a seguinte estrutura estrita:
-{
-  "prompt": "Uma dica poética e enigmática sobre a palavra (máximo de 1 frase).",
-  "category": "Uma destas categorias: ${CATEGORIES.join(", ")}",
-  "aliases": {
-    "palavra_mais_proxima": 2,
-    "segunda_mais_proxima": 3,
-    "terceira": 5
-  }
-}
-
-REGRAS DOS ALIASES:
-- As palavras nos 'aliases' devem ser as que mais se aproximam pelo significado, contexto ou associação com "${word}".
-- A chave é a palavra relacionada, o valor é o "rank" (a distância). O 1 sempre será a própria palavra (não inclua o rank 1, só a partir do 2).
-- Atribua ranks entre 2 e 50 para as mais próximas (gere cerca de 30 palavras).
-- NÃO USE markdown na resposta. Retorne APENAS o JSON puro.`;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.7,
-        }
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  
-  if (!textResponse) throw new Error("Invalid response format from Gemini");
-  
-  return JSON.parse(textResponse);
-}
-
-export async function ensureChallenges(bufferDays = 7) {
+/**
+ * Keeps a small production buffer without Random Word API or generative AI.
+ * Existing dates are immutable, so games already started never change answer.
+ */
+export async function ensureChallenges(bufferDays = DEFAULT_CHALLENGE_BUFFER_DAYS) {
   const db = await getDb();
-  if (!db) {
-    console.error("Database not ready");
-    return;
-  }
+  if (!db) throw new Error("Database not ready");
 
-  // Find the latest challenge date
-  const latestChallenge = await db
-    .select({ date: nexoDailyChallenges.date })
+  const startDate = todayUTC();
+  const planned = planChallenges(startDate, bufferDays);
+  const rows = await db
+    .select({ date: nexoDailyChallenges.date, word: nexoDailyChallenges.word })
     .from(nexoDailyChallenges)
-    .orderBy(desc(nexoDailyChallenges.date))
-    .limit(1);
+    .orderBy(asc(nexoDailyChallenges.date));
+  const byDate = new Map(rows.map(row => [row.date, row.word]));
 
-  let nextDate = "2026-09-01"; // Retroactive start for the month
-  if (latestChallenge.length > 0 && latestChallenge[0].date >= nextDate) {
-    nextDate = getNextDate(latestChallenge[0].date);
-  }
-
-  const targetDate = new Date();
-  targetDate.setUTCDate(targetDate.getUTCDate() + bufferDays - 1);
-  const targetDateStr = targetDate.toISOString().slice(0, 10);
-
-  let daysToGenerate = 0;
-  let cursorDate = nextDate;
-  while (cursorDate <= targetDateStr) {
-    daysToGenerate++;
-    cursorDate = getNextDate(cursorDate);
-  }
-
-  if (daysToGenerate === 0) {
-    console.log("Challenges are already populated up to the buffer window.");
-    return;
-  }
-
-  console.log(`Generating ${daysToGenerate} new challenges starting from ${nextDate}...`);
-  
-  let words = await fetchRandomWords(daysToGenerate * 2); // Fetch extra to account for filtering
-  words = words.filter(w => !THEME_WORDS.includes(w.toLowerCase())).slice(0, daysToGenerate);
-  if (words.length === 0) return;
-
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    console.log(`[${nextDate}] Generating semantic map for: ${word}`);
-    try {
-      const generated = await generateChallengeForWord(word);
-      
-      // Ensure the target word is rank 1
-      generated.aliases[word] = 1;
-
-      await db.insert(nexoDailyChallenges).values({
-        date: nextDate,
-        word: word.toLowerCase(),
-        prompt: generated.prompt,
-        category: generated.category,
-        aliasesJson: JSON.stringify(generated.aliases),
-      });
-
-      console.log(`Saved ${word} for ${nextDate}.`);
-      nextDate = getNextDate(nextDate);
-      
-      if (i < words.length - 1) {
-        // Sleep to avoid rate limits (8s)
-        await delay(8000);
+  // Validate the real database history before adding anything. A repeated word
+  // inside the cooldown indicates manual/corrupt data and must not be hidden.
+  const lastSeen = new Map<string, string>();
+  for (const row of rows) {
+    const word = normalizeWord(row.word);
+    const previous = lastSeen.get(word);
+    if (previous) {
+      const distance = Math.round(
+        (Date.parse(`${row.date}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / DAY_MS,
+      );
+      if (distance <= DAILY_REPEAT_COOLDOWN) {
+        throw new Error(`Repeated daily word "${row.word}" on ${previous} and ${row.date}`);
       }
-    } catch (err) {
-      console.error(`Failed to generate for ${word}:`, err);
-      // We break the loop and try again later if it fails
-      break;
     }
+    lastSeen.set(word, row.date);
   }
+
+  let inserted = 0;
+  for (const challenge of planned) {
+    if (byDate.has(challenge.date)) continue;
+
+    const normalized = normalizeWord(challenge.word);
+    const previous = lastSeen.get(normalized);
+    if (previous) {
+      const distance = Math.round(
+        (Date.parse(`${challenge.date}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / DAY_MS,
+      );
+      if (distance <= DAILY_REPEAT_COOLDOWN) {
+        throw new Error(`Schedule collision for "${challenge.word}" after ${distance} days`);
+      }
+    }
+
+    // A concurrent invocation may win the same date. The no-op update keeps the
+    // first immutable snapshot instead of changing an answer mid-game.
+    await db
+      .insert(nexoDailyChallenges)
+      .values(challenge)
+      .onDuplicateKeyUpdate({ set: { date: challenge.date } });
+    byDate.set(challenge.date, challenge.word);
+    lastSeen.set(normalized, challenge.date);
+    inserted++;
+  }
+
+  return {
+    inserted,
+    kept: planned.length - inserted,
+    from: planned[0].date,
+    through: planned.at(-1)!.date,
+  };
 }
 
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-
-if (process.argv[1] === __filename) {
+if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, "/")}`) {
   ensureChallenges()
-    .then(() => process.exit(0))
-    .catch(err => {
-      console.error(err);
-      process.exit(1);
+    .then(result => console.log("Daily challenge buffer ready:", result))
+    .catch(error => {
+      console.error(error);
+      process.exitCode = 1;
     });
 }
