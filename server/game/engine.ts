@@ -9,6 +9,7 @@ import { CATEGORY_HINTS, THEME_CATALOG, type WordEntry } from "./dictionary";
 import { dayIndexForDate, getEntryForDate, isDailyDate } from "./dailySchedule";
 import { semanticGraphRank } from "./semanticGraph";
 import { getFreeEntry } from "./freeMode";
+import { precomputedSemanticRank, SEMANTIC_VOCABULARY_SIZE } from "./semanticRanks";
 export { dayIndexForDate, getEntryForDate } from "./dailySchedule";
 
 /**
@@ -43,10 +44,16 @@ export function evaluateGuess(
     ([alias]) => normalize(alias) === clean,
   )?.[1];
 
-  const rank = knownRank ?? semanticGraphRank(clean, entry);
-  const proximity = Math.max(6, Math.round(100 - rank * 2.65));
+  const rank = knownRank ?? precomputedSemanticRank(clean, entry.word) ?? semanticGraphRank(clean, entry);
+  const proximity = Math.max(
+    2,
+    Math.round(100 - (Math.log10(rank) / Math.log10(SEMANTIC_VOCABULARY_SIZE)) * 98),
+  );
   const tag =
-    rank <= 5 ? "muito quente" : rank <= 15 ? "no caminho" : "mais distante";
+    rank <= 50 ? "muito quente"
+      : rank <= 300 ? "no caminho"
+      : rank <= 1_500 ? "relacionada"
+      : "mais distante";
 
   return { rank, proximity, tag };
 }

@@ -117,3 +117,6 @@ client/public/__manus__/version.json
 
 # Generated offline Portuguese dictionary
 server/game/generated/
+!server/game/generated/
+server/game/generated/*
+!server/game/generated/semantic-ranks.ts

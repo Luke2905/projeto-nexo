@@ -16,11 +16,13 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "postinstall": "patch-package",
     "build:lexicon": "node scripts/build-lexicon.mjs",
-    "predev": "npm run build:lexicon",
-    "precheck": "npm run build:lexicon",
-    "pretest": "npm run build:lexicon",
-    "prebuild": "npm run build:lexicon",
-    "prebuild:api": "npm run build:lexicon"
+    "build:semantic": "node --import tsx scripts/build-semantic-ranks.mjs",
+    "build:game-data": "npm run build:lexicon && npm run build:semantic",
+    "predev": "npm run build:game-data",
+    "precheck": "npm run build:game-data",
+    "pretest": "npm run build:game-data",
+    "prebuild": "npm run build:game-data",
+    "prebuild:api": "npm run build:game-data"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

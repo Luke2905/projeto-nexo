@@ -16,3 +16,17 @@ Changes performed by scripts/build-lexicon.mjs: expand inflections using
 nspell 2.1.5 (MIT), select single-word forms, fold case and accents, remove
 duplicates, sort and gzip. Pinned source packages and the generator are
 available through package-lock.json and scripts/build-lexicon.mjs.
+
+# Portuguese semantic rankings
+
+The generated semantic-neighbour rankings are derived from NILC Portuguese
+Word Embeddings, GloVe 50 dimensions, trained by the NILC NLP group on a
+1.39-billion-token Portuguese corpus. The source embeddings are distributed
+under CC BY 4.0 and are not bundled with the application. This application
+ships only the transformed nearest-neighbour indices produced by
+scripts/build-semantic-ranks.mjs.
+
+Sources and license:
+- https://huggingface.co/nilc-nlp/glove-50d
+- https://github.com/nathanshartmann/portuguese_word_embeddings
+- https://creativecommons.org/licenses/by/4.0/

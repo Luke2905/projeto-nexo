@@ -73,7 +73,7 @@ export function semanticGraphRank(guessWord: string, target: WordEntry): number 
   for (const context of contexts) {
     const reverse = directRank(context.entry, answer);
     if (context.relationRank === 1 && reverse !== undefined) {
-      best = Math.min(best, Math.max(12, Math.min(30, reverse + 7)));
+      best = Math.min(best, Math.max(60, Math.min(280, reverse * 6)));
       continue;
     }
 
@@ -81,16 +81,16 @@ export function semanticGraphRank(guessWord: string, target: WordEntry): number 
       best = Math.min(
         best,
         context.relationRank === 1
-          ? stableRank(27, 38, `${guess}/${answer}/answer`)
-          : stableRank(34, 49, `${guess}/${answer}/alias`),
+          ? stableRank(350, 950, `${guess}/${answer}/answer`)
+          : stableRank(800, 1_700, `${guess}/${answer}/alias`),
       );
       continue;
     }
 
     if (RELATED_CATEGORIES[target.category]?.includes(context.category)) {
-      best = Math.min(best, stableRank(52, 72, `${guess}/${answer}/related`));
+      best = Math.min(best, stableRank(1_800, 3_800, `${guess}/${answer}/related`));
     }
   }
 
-  return best === 99 ? stableRank(78, 99, `${guess}/${answer}/distant`) : best;
+  return best === 99 ? stableRank(5_000, 20_000, `${guess}/${answer}/distant`) : best;
 }

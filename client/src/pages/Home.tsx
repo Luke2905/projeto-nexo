@@ -49,8 +49,8 @@ type Guess = {
 
 function colorForRank(rank: number) {
   if (rank === 1) return "hot";
-  if (rank <= 5) return "warm";
-  if (rank <= 15) return "near";
+  if (rank <= 50) return "warm";
+  if (rank <= 300) return "near";
   return "cool";
 }
 
